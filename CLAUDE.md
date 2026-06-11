@@ -18,6 +18,19 @@ Phase 1 (ingestion) is complete and tested live. The pipeline ingested 83
 races and 35 games for 2025-06-04 to 2025-06-05 correctly, and re-runs are
 idempotent. Phase 2 (normalisation and features) has not started.
 
+Environment notes (June 2026):
+
+- The NBIM corporate network blocks atg.se through its web filter, so
+  ingestion cannot run from this machine on that network. The client
+  handles this correctly: it retries, fails loudly, and leaves the day
+  incomplete. Run ingestion from a network where atg.se is reachable.
+- pip cannot reach files.pythonhosted.org on this network. Install
+  packages with uv, which is configured against NBIM's JFrog Artifactory:
+  `uv pip install -r requirements.txt --python .venv\Scripts\python.exe`
+- Storage and explore were verified offline with fabricated payloads.
+- This repository is local only. Do not push to any remote or create
+  remote repositories unless explicitly instructed.
+
 Code layout:
 
 ```
