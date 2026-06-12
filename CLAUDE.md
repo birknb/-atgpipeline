@@ -31,6 +31,23 @@ Environment notes (June 2026):
 - This repository is local only. Do not push to any remote or create
   remote repositories unless explicitly instructed.
 
+Two-machine workflow (because of the network block):
+
+1. Ingestion runs on a personal machine where atg.se is reachable.
+   Transfer the repo there as a zip. Setup on that machine: create a
+   venv, `pip install -r requirements.txt`, then run `python -m
+   atg.ingest`. Backfill in month-sized chunks. One year takes a few
+   hours and is safe to interrupt and resume.
+2. The result is a single file, `data/atg.sqlite`. Zip it (raw JSON
+   compresses roughly 10x) and copy it back to this laptop into
+   `data/`. The directory is gitignored.
+3. All later phases (normalisation, features, models, evaluation) run
+   on this laptop against the local SQLite file and need no network.
+4. Phase 4 (live pre-race logging) must eventually run on the personal
+   machine or a small always-on box, since it needs the API near race
+   start. The day-based idempotent CLI already fits a nightly
+   incremental run.
+
 Code layout:
 
 ```
