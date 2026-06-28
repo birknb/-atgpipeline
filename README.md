@@ -65,9 +65,14 @@ python -m atg.ingest --from 2025-06-01 --to 2025-06-07
 python -m atg.explore
 
 # Backfill. Safe to interrupt and resume. Default scope is Scandinavia
-# (SE, DK, NO). Use --countries SE for the fastest run, or --countries all.
+# (SE, DK, NO). Use --countries SE to narrow, or --countries all to widen.
 python -m atg.ingest --from 2023-01-01 --to 2025-12-31
-python -m atg.ingest --from 2023-01-01 --to 2025-12-31 --countries SE
+
+# Lean backfill for tight disk. --skip-games drops the V game pools, which
+# are about 60 percent of the storage and hold only the secondary spelprocent.
+# The primary odds benchmark and all features come from races, so results are
+# unaffected. Roughly 2 to 3 GB instead of 5 to 8 GB for 3.5 years.
+python -m atg.ingest --from 2023-01-01 --to 2025-12-31 --skip-games
 
 # Pull a few raw JSON files for parser validation, on a machine with access.
 python -m tools.fetch_samples --date 2025-06-07

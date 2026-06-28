@@ -45,12 +45,17 @@ def daterange(start: date, end: date):
 
 
 def ingest_day(
-    client: AtgClient, db: Db, day: str, countries: set[str] | None = None
+    client: AtgClient,
+    db: Db,
+    day: str,
+    countries: set[str] | None = None,
+    skip_games: bool = False,
 ) -> tuple[int, int, int]:
     """Fetch one day. Returns (n_races, n_games, n_failures).
 
     countries restricts which tracks are fetched by country code. None means
-    all countries.
+    all countries. skip_games avoids the V game pools, which hold only the
+    secondary spelprocent and roughly halve the storage and time.
     """
     try:
         cal = client.calendar_day(day)
@@ -91,23 +96,24 @@ def ingest_day(
                 db.upsert_race(payload)
                 n_races += 1
 
-    for game_type, games in (cal.get("games") or {}).items():
-        if game_type not in GAME_TYPES:
-            continue
-        for game_stub in games:
-            game_id = game_stub["id"]
-            if db.has_game(game_id):
-                n_games += 1
+    if not skip_games:
+        for game_type, games in (cal.get("games") or {}).items():
+            if game_type not in GAME_TYPES:
                 continue
-            try:
-                payload = client.game(game_id)
-            except RuntimeError as exc:
-                log.error("%s: game %s failed: %s", day, game_id, exc)
-                n_fail += 1
-                continue
-            if payload is not None and payload.get("status") == "results":
-                db.upsert_game(payload)
-                n_games += 1
+            for game_stub in games:
+                game_id = game_stub["id"]
+                if db.has_game(game_id):
+                    n_games += 1
+                    continue
+                try:
+                    payload = client.game(game_id)
+                except RuntimeError as exc:
+                    log.error("%s: game %s failed: %s", day, game_id, exc)
+                    n_fail += 1
+                    continue
+                if payload is not None and payload.get("status") == "results":
+                    db.upsert_game(payload)
+                    n_games += 1
 
     db.commit()
     if n_fail == 0:
@@ -125,6 +131,12 @@ def main(argv: list[str] | None = None) -> int:
         "--countries",
         default="SE,DK,NO",
         help="comma-separated country codes to keep, or 'all'. Default Scandinavia.",
+    )
+    parser.add_argument(
+        "--skip-games",
+        action="store_true",
+        help="do not fetch V game pools. Smaller and faster. Keeps the primary "
+        "odds benchmark; only the secondary spelprocent is skipped.",
     )
     args = parser.parse_args(argv)
 
@@ -150,8 +162,9 @@ def main(argv: list[str] | None = None) -> int:
     client = AtgClient(delay_s=args.delay)
 
     log.info(
-        "Ingesting %s to %s, countries=%s, delay=%.2fs",
-        start, end, "all" if countries is None else ",".join(sorted(countries)), args.delay,
+        "Ingesting %s to %s, countries=%s, games=%s, delay=%.2fs",
+        start, end, "all" if countries is None else ",".join(sorted(countries)),
+        "skip" if args.skip_games else "on", args.delay,
     )
     total_races = total_games = 0
     try:
@@ -161,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
                 log.info("%s: already complete, skipping", day)
                 continue
             try:
-                n_races, n_games, n_fail = ingest_day(client, db, day, countries)
+                n_races, n_games, n_fail = ingest_day(client, db, day, countries, args.skip_games)
             except RuntimeError as exc:
                 # Any unexpected failure leaves the day incomplete and the run
                 # continues. Re-running resumes from this day.
