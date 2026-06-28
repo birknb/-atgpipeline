@@ -25,8 +25,12 @@ from .db import Db
 
 log = logging.getLogger("atg.ingest")
 
-# Pool game types to store. These carry the bet distribution (spelprocent),
-# the market data the models are benchmarked against.
+# Marking-bet pool types to store. These carry the per-horse betDistribution
+# (the V game spelprocent), which is the only place that distribution exists.
+# vinnare and plats are deliberately not collected: the win pool only carries
+# odds, which already equal result.finalOdds, and the place pool is out of
+# scope. There is roughly one win and one place pool per race, so skipping
+# them keeps the crawl about three times smaller.
 GAME_TYPES = {"V75", "V86", "V64", "V65", "GS75", "V5", "V4", "V3", "dd", "ld"}
 
 # Only trot races are modelled. Gallop days are skipped.
@@ -40,9 +44,21 @@ def daterange(start: date, end: date):
         d += timedelta(days=1)
 
 
-def ingest_day(client: AtgClient, db: Db, day: str) -> tuple[int, int, int]:
-    """Fetch one day. Returns (n_races, n_games, n_failures)."""
-    cal = client.calendar_day(day)
+def ingest_day(
+    client: AtgClient, db: Db, day: str, countries: set[str] | None = None
+) -> tuple[int, int, int]:
+    """Fetch one day. Returns (n_races, n_games, n_failures).
+
+    countries restricts which tracks are fetched by country code. None means
+    all countries.
+    """
+    try:
+        cal = client.calendar_day(day)
+    except RuntimeError as exc:
+        # The calendar itself could not be fetched. Leave the day incomplete
+        # and let the caller move on to the next day.
+        log.error("%s: calendar fetch failed: %s", day, exc)
+        return 0, 0, 1
     if cal is None:
         log.info("%s: no calendar (404)", day)
         db.mark_day_done(day, 0, 0)
@@ -53,6 +69,9 @@ def ingest_day(client: AtgClient, db: Db, day: str) -> tuple[int, int, int]:
 
     for track in cal.get("tracks", []):
         if track.get("sport") not in SPORTS:
+            continue
+        country = track.get("countryCode") or track.get("country")
+        if countries is not None and country not in countries:
             continue
         for race_stub in track.get("races", []):
             if race_stub.get("status") != "results":
@@ -77,6 +96,9 @@ def ingest_day(client: AtgClient, db: Db, day: str) -> tuple[int, int, int]:
             continue
         for game_stub in games:
             game_id = game_stub["id"]
+            if db.has_game(game_id):
+                n_games += 1
+                continue
             try:
                 payload = client.game(game_id)
             except RuntimeError as exc:
@@ -99,6 +121,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--to", dest="date_to", required=True, help="YYYY-MM-DD")
     parser.add_argument("--db", default="data/atg.sqlite", help="SQLite file path")
     parser.add_argument("--delay", type=float, default=0.4, help="seconds between requests")
+    parser.add_argument(
+        "--countries",
+        default="SE,DK,NO",
+        help="comma-separated country codes to keep, or 'all'. Default Scandinavia.",
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -110,12 +137,22 @@ def main(argv: list[str] | None = None) -> int:
     if end < start:
         parser.error("--to must be on or after --from")
 
+    countries: set[str] | None
+    if args.countries.strip().lower() == "all":
+        countries = None
+    else:
+        countries = {c.strip().upper() for c in args.countries.split(",") if c.strip()}
+
     from pathlib import Path
 
     Path(args.db).parent.mkdir(parents=True, exist_ok=True)
     db = Db(args.db)
     client = AtgClient(delay_s=args.delay)
 
+    log.info(
+        "Ingesting %s to %s, countries=%s, delay=%.2fs",
+        start, end, "all" if countries is None else ",".join(sorted(countries)), args.delay,
+    )
     total_races = total_games = 0
     try:
         for d in daterange(start, end):
@@ -123,7 +160,13 @@ def main(argv: list[str] | None = None) -> int:
             if db.day_is_done(day):
                 log.info("%s: already complete, skipping", day)
                 continue
-            n_races, n_games, n_fail = ingest_day(client, db, day)
+            try:
+                n_races, n_games, n_fail = ingest_day(client, db, day, countries)
+            except RuntimeError as exc:
+                # Any unexpected failure leaves the day incomplete and the run
+                # continues. Re-running resumes from this day.
+                log.error("%s: failed, day left incomplete: %s", day, exc)
+                continue
             total_races += n_races
             total_games += n_games
             log.info(

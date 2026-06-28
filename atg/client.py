@@ -80,11 +80,18 @@ class AtgClient:
                     log.debug("404 for %s", path)
                     return None
                 if resp.status_code == 429 or resp.status_code >= 500:
+                    # Rate limiting and server errors are transient. Retry.
                     raise requests.HTTPError(f"HTTP {resp.status_code}")
-                resp.raise_for_status()
+                if resp.status_code >= 400:
+                    # Other client errors will not change on retry. Fail now.
+                    raise RuntimeError(f"HTTP {resp.status_code} for {url}")
+                # A 2xx body that is not JSON usually means an intercepting
+                # proxy returned an HTML page. resp.json() raises ValueError,
+                # which is caught below and retried.
                 return resp.json()
 
-            except (requests.ConnectionError, requests.Timeout, requests.HTTPError) as exc:
+            except (requests.ConnectionError, requests.Timeout, requests.HTTPError,
+                    ValueError) as exc:
                 if attempt == self.max_retries:
                     raise RuntimeError(f"Giving up on {url} after {attempt} attempts") from exc
                 log.warning(

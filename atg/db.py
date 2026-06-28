@@ -135,6 +135,12 @@ class Db:
         ).fetchone()
         return row is not None
 
+    def has_game(self, game_id: str) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM raw_games WHERE game_id = ?", (game_id,)
+        ).fetchone()
+        return row is not None
+
     def close(self) -> None:
         self.conn.commit()
         self.conn.close()

@@ -5,7 +5,8 @@ Phase 1 ingests raw data from ATG's public racing info API. Later phases add
 feature engineering and probabilistic race outcome models evaluated against
 the betting market.
 
-Status: Phase 1, data ingestion.
+Status: Phase 1 (ingestion) complete. Phase 2 (normalisation and the market
+benchmark) written and validated offline, pending a real backfill.
 
 ## Research question
 
@@ -14,7 +15,7 @@ normalised public betting distribution, out of sample. Betting profit is not
 a goal. Pari-mutuel takeout makes profit unrealistic. The betting market
 serves as the public baseline, and every prediction has a verifiable outcome.
 
-## Architecture (Phase 1)
+## Architecture
 
 ```
 atg/
@@ -22,6 +23,14 @@ atg/
   db.py        SQLite storage of complete raw JSON responses
   ingest.py    Idempotent day-by-day ingestion CLI, resumable and re-runnable
   explore.py   Sanity checks on the collected data
+  normalize.py Raw JSON to analytical tables, re-runnable, reads only raw data
+  benchmark.py Market win probabilities and benchmark log loss and Brier
+  metrics.py   Log loss, Brier, calibration, paired bootstrap
+tools/
+  fetch_samples.py  Pull a few raw JSON files for parser validation
+tests/
+  test_phase2.py     Offline end-to-end check on fabricated payloads
+  build_sample_db.py Build a small DB from raw JSON in data/samples/
 ```
 
 Design principles:
@@ -55,9 +64,26 @@ python -m atg.ingest --from 2025-06-01 --to 2025-06-07
 # Inspect what was collected
 python -m atg.explore
 
-# Backfill a full year. This takes a few hours and is safe to interrupt
-# and resume.
-python -m atg.ingest --from 2024-01-01 --to 2024-12-31
+# Backfill. Safe to interrupt and resume. Default scope is Scandinavia
+# (SE, DK, NO). Use --countries SE for the fastest run, or --countries all.
+python -m atg.ingest --from 2023-01-01 --to 2025-12-31
+python -m atg.ingest --from 2023-01-01 --to 2025-12-31 --countries SE
+
+# Pull a few raw JSON files for parser validation, on a machine with access.
+python -m tools.fetch_samples --date 2025-06-07
+```
+
+Phase 2 runs on the local SQLite file and needs no network.
+
+```bash
+# Normalise raw JSON into analytical tables and print a validation report.
+python -m atg.normalize --db data/atg.sqlite
+
+# Compute the market benchmark (log loss, Brier, calibration plot).
+python -m atg.benchmark --db data/atg.sqlite
+
+# Offline check of the whole Phase 2 chain on fabricated data.
+python tests/test_phase2.py
 ```
 
 Data is written to `data/atg.sqlite`, which is gitignored.
@@ -80,11 +106,22 @@ games/{gameId}               pool turnover, per-start betDistribution
 Id formats: race `YYYY-MM-DD_trackId_raceNo`, game
 `TYPE_YYYY-MM-DD_trackId_legRaceNo`.
 
+Normalisation produces three derived tables in the same SQLite file, rebuilt
+on each run:
+
+```
+norm_races             one row per race
+norm_starts            one row per horse per race, the analytical unit.
+                       Post-race columns (place, km_time_s, final_odds,
+                       is_winner) are labels and benchmark inputs only.
+norm_bet_distribution  one row per horse per pool leg, share of the pool
+```
+
 ## Roadmap
 
 - [x] Phase 1: ingestion pipeline (this repo)
-- [ ] Phase 2: normalisation and feature engineering (form, class,
-      driver and trainer statistics, post position, equipment changes)
+- [~] Phase 2: normalisation and market benchmark. Code written and validated
+      offline. Real benchmark numbers pending a backfill.
 - [ ] Phase 3: models. Conditional logit baseline, then LightGBM ranking.
       Calibration and time-split backtest against market log loss.
 - [ ] Phase 4: live prediction logging (timestamped, pre-race) and a dashboard
