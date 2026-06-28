@@ -52,8 +52,10 @@ Environment notes (June 2026):
   packages with uv, which is configured against NBIM's JFrog Artifactory:
   `uv pip install -r requirements.txt --python .venv\Scripts\python.exe`
 - Storage and explore were verified offline with fabricated payloads.
-- This repository is local only. Do not push to any remote or create
-  remote repositories unless explicitly instructed.
+- The code is synced through a personal GitHub repo, birknb/-atgpipeline,
+  branch main. Only code is pushed. The data (data/, the sqlite, zips) is
+  gitignored and must never be pushed. Do not push to any other remote, in
+  particular anything under an NBIM or corporate organisation.
 
 Two-machine workflow (because of the network block):
 
