@@ -67,6 +67,13 @@ CREATE TABLE norm_features (
     shoe_front_changed  INTEGER,
     shoe_back_changed   INTEGER,
     sulky_changed       INTEGER,
+    -- as-of-race API statistics, verified point-in-time safe
+    stat_life_starts    INTEGER,
+    stat_win_pct        REAL,
+    stat_place_pct      REAL,
+    stat_earn_per_start INTEGER,
+    stat_start_points   INTEGER,
+    best_km_time_s      REAL,
     -- horse history, prior races only
     hist_starts         INTEGER,
     is_debut            INTEGER,
@@ -102,6 +109,8 @@ COLUMNS = [
     "sport", "country", "field_size", "distance_m", "start_method",
     "start_distance_m", "post_position", "post_rel", "track_id", "age", "sex",
     "shoes_changed", "shoe_front_changed", "shoe_back_changed", "sulky_changed",
+    "stat_life_starts", "stat_win_pct", "stat_place_pct", "stat_earn_per_start",
+    "stat_start_points", "best_km_time_s",
     "hist_starts", "is_debut", "days_since_last", "form_speed", "form_n", "elo",
     "elo_default", "cum_earnings", "avg_earn_per_start", "driver_id",
     "driver_win_rate", "driver_place_rate", "driver_n", "trainer_id",
@@ -197,7 +206,9 @@ def build(db_path: str) -> Counter:
                   horse_id, age, sex, shoes_changed, shoe_front_changed,
                   shoe_back_changed, sulky_changed, driver_id, trainer_id,
                   scratched, place, km_time_s, prize_money, final_odds,
-                  is_winner, galloped_or_dq
+                  is_winner, galloped_or_dq,
+                  stat_life_starts, stat_win_pct, stat_place_pct,
+                  stat_earn_per_start, stat_start_points, best_km_time_s
            FROM norm_starts"""
     ):
         starts_by_race.setdefault(row[1], []).append(row)
@@ -236,7 +247,9 @@ def build(db_path: str) -> Counter:
             (start_id, _rid, number, post_position, start_distance_m, horse_id,
              age, sex, shoes_changed, shoe_front_changed, shoe_back_changed,
              sulky_changed, driver_id, trainer_id, _scratched, place, km_time_s,
-             prize_money, final_odds, is_winner, galloped_or_dq) = s
+             prize_money, final_odds, is_winner, galloped_or_dq,
+             stat_life_starts, stat_win_pct, stat_place_pct, stat_earn_per_start,
+             stat_start_points, best_km_time_s) = s
 
             hs = h_starts.get(horse_id, 0)
             last_day = h_last_day.get(horse_id)
@@ -264,6 +277,12 @@ def build(db_path: str) -> Counter:
                 "shoe_front_changed": shoe_front_changed,
                 "shoe_back_changed": shoe_back_changed,
                 "sulky_changed": sulky_changed,
+                "stat_life_starts": stat_life_starts,
+                "stat_win_pct": stat_win_pct,
+                "stat_place_pct": stat_place_pct,
+                "stat_earn_per_start": stat_earn_per_start,
+                "stat_start_points": stat_start_points,
+                "best_km_time_s": best_km_time_s,
                 "hist_starts": hs,
                 "is_debut": 1 if hs == 0 else 0,
                 "days_since_last": float(day - last_day) if last_day is not None else None,

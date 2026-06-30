@@ -90,12 +90,21 @@ docs/RESEARCH.md. Progress so far:
   features the fundamental model holds essentially no signal orthogonal to the
   crowd. The favourite-longshot recalibration remains the one genuine edge. This
   is a pre-walk-forward finding and it motivates the feature work.
+- First feature enrichment: the as-of-race API statistics (career win and place
+  rates, earnings per start, life starts, best record time), verified
+  point-in-time safe, plus sex and an age curve. This lifted the fundamental
+  models (conditional logit 1.96 to 1.85, LightGBM 1.92 to 1.81 log loss,
+  pre-walk-forward), and the market combination now beats the recalibrated market
+  by a tiny but significant margin, about 0.05 percent skill, p 0.01, right at the
+  detection floor. So the enriched features hold a sliver of signal orthogonal to
+  the crowd. It is fragile and pre-walk-forward, to be confirmed later. The
+  standalone fundamental model still trails the market clearly.
 
-Still to do in Phase 3: stronger features (the as-of-race API statistics blocks, a
-track-variant and class-adjusted speed figure, sex and an age curve, better
-ratings), then re-test the standalone model and the combination ceiling, a
-grouped-softmax objective and calibration (Step 4), and the walk-forward
-evaluation that turns these provisional numbers into results (Step 5).
+Still to do in Phase 3: a track-variant and class-adjusted speed figure and
+better ratings (the next feature work, since the current speed figure conflates
+class with ability), a grouped-softmax objective and calibration (Step 4), and
+the walk-forward evaluation that turns these provisional numbers into results
+(Step 5).
 
 ## Data and workflow
 

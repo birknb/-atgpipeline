@@ -74,6 +74,12 @@ CREATE TABLE norm_starts (
     age                INTEGER,
     sex                TEXT,
     career_money       INTEGER,   -- horse.money. May be current, not as-of-race.
+    stat_life_starts   INTEGER,   -- statistics.life.starts, as-of-race (verified)
+    stat_win_pct       REAL,      -- as-of-race career win fraction
+    stat_place_pct     REAL,      -- as-of-race career place fraction
+    stat_earn_per_start INTEGER,  -- statistics.life.earningsPerStart
+    stat_start_points  INTEGER,   -- statistics.life.startPoints
+    best_km_time_s     REAL,      -- horse.record best time, as-of-race (verified)
     shoe_front_on      INTEGER,
     shoe_back_on       INTEGER,
     shoe_front_changed INTEGER,
@@ -169,6 +175,28 @@ def km_time_seconds(km: dict | None) -> float | None:
     return minutes * 60 + seconds + tenths / 10.0
 
 
+def horse_stats(horse: dict) -> dict:
+    """Extract the as-of-race statistics blocks. These were verified to be
+    as-of-race and to exclude the current race, so they are point-in-time safe.
+    Percentages are scaled by 10000 in the API, so 3076 means a 0.3076 fraction.
+    The record best time was verified to exclude the current race as well."""
+    life = (horse.get("statistics") or {}).get("life") or {}
+    record_time = (horse.get("record") or {}).get("time")
+
+    def pct(v):
+        f = _float(v)
+        return f / 10000.0 if f is not None else None
+
+    return {
+        "stat_life_starts": _int(life.get("starts")),
+        "stat_win_pct": pct(life.get("winPercentage")),
+        "stat_place_pct": pct(life.get("placePercentage")),
+        "stat_earn_per_start": _int(life.get("earningsPerStart")),
+        "stat_start_points": _int(life.get("startPoints")),
+        "best_km_time_s": km_time_seconds(record_time),
+    }
+
+
 def shoe_fields(shoes: dict | None):
     """Return (front_on, back_on, front_changed, back_changed, any_changed)."""
     if not isinstance(shoes, dict):
@@ -234,6 +262,7 @@ def parse_race(payload: dict, report: Counter) -> tuple[dict, list[dict]]:
                 "age": _int(horse.get("age")),
                 "sex": horse.get("sex"),
                 "career_money": _int(horse.get("money")),
+                **horse_stats(horse),
                 "shoe_front_on": fon,
                 "shoe_back_on": bon,
                 "shoe_front_changed": fch,

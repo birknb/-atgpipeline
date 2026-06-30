@@ -44,6 +44,8 @@ RAW_FEATURES = [
     "post_rel", "age", "is_debut", "form_speed", "elo", "elo_default",
     "driver_win_rate", "driver_place_rate", "trainer_win_rate",
     "trainer_place_rate", "shoes_changed", "sulky_changed",
+    # as-of-race API statistics, verified point-in-time safe
+    "stat_win_pct", "stat_place_pct", "best_km_time_s", "stat_start_points",
 ]
 # Skewed counts and money, entered after a log transform.
 LOG_FEATURES = {
@@ -53,7 +55,11 @@ LOG_FEATURES = {
     "avg_earn_per_start": "t_avg_earn",
     "driver_n": "t_driver_n",
     "trainer_n": "t_trainer_n",
+    "stat_earn_per_start": "t_stat_earn",
+    "stat_life_starts": "t_stat_starts",
 }
+# Derived in prepare: an age curve and sex indicators (gelding is the baseline).
+DERIVED_FEATURES = ["age2", "is_mare", "is_stallion"]
 
 # Fixed split. Provisional, pre-walk-forward.
 TRAIN_END = "2025-09-30"
@@ -85,9 +91,12 @@ def prepare(df: pd.DataFrame, train_mask: pd.Series) -> tuple[np.ndarray, list[s
     training standard deviation so coefficients share one scale. The scale is fit
     on training rows only."""
     df = df.copy()
+    df["age2"] = df["age"].astype(float) ** 2
+    df["is_mare"] = (df["sex"] == "mare").astype(float)
+    df["is_stallion"] = (df["sex"] == "stallion").astype(float)
     for src, dst in LOG_FEATURES.items():
         df[dst] = np.log1p(df[src].clip(lower=0))
-    feats = RAW_FEATURES + list(LOG_FEATURES.values())
+    feats = RAW_FEATURES + DERIVED_FEATURES + list(LOG_FEATURES.values())
 
     cols = []
     for f in feats:

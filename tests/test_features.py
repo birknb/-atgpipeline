@@ -38,7 +38,8 @@ START_COLS = [
     "horse_id", "age", "sex", "shoes_changed", "shoe_front_changed",
     "shoe_back_changed", "sulky_changed", "driver_id", "trainer_id", "scratched",
     "place", "km_time_s", "prize_money", "final_odds", "is_winner",
-    "galloped_or_dq",
+    "galloped_or_dq", "stat_life_starts", "stat_win_pct", "stat_place_pct",
+    "stat_earn_per_start", "stat_start_points", "best_km_time_s",
 ]
 
 
@@ -58,7 +59,8 @@ def make_db(path: str) -> None:
         conn.execute(
             f"INSERT INTO norm_starts ({','.join(START_COLS)}) VALUES ({','.join('?' * len(START_COLS))})",
             (sid, rid, post, post, 2140, horse, 5, "gelding", 0, 0, 0, 0,
-             driver, trainer, 0, place, km, prize, 5.0, winner, gallop),
+             driver, trainer, 0, place, km, prize, 5.0, winner, gallop,
+             None, None, None, None, None, None),
         )
 
     # R0 seeds par. R1 then produces form figures. R2 is the test race for H1.
