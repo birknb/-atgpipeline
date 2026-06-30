@@ -59,6 +59,7 @@ atg/
   score.py     Score stored prediction snapshots against realised outcomes
 tools/
   fetch_samples.py  Pull a few raw JSON files for parser validation
+  inspect_live.py   Dump a live pre-race payload to confirm the Phase 4 unknowns
 tests/
   test_phase2.py     Offline end-to-end check on fabricated payloads
   test_evaluate.py   Offline checks of the evaluation harness
