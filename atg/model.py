@@ -298,8 +298,9 @@ def walk_forward(df: pd.DataFrame, first_test: str = "2025-01-01",
         # Per-fold check on the honest comparison, combo against the recalibrated
         # market, so we can see whether the edge is consistent or one fold.
         d = metrics.log_loss(flb_test) - metrics.log_loss(combo_test)
+        d_raw = metrics.log_loss(mkt_test) - metrics.log_loss(combo_test)
         print(f"  fold {ts}..{te}: {test['race_id'].nunique():>4} races  "
-              f"combo-vs-flb diff {d:+.5f}  (fund weight {coef[0]:+.2f})")
+              f"combo-vs-raw {d_raw:+.5f}  combo-vs-flb {d:+.5f}  (fund w {coef[0]:+.2f})")
         n_folds += 1
         t0 = t1
 
