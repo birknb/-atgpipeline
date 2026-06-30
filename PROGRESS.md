@@ -148,10 +148,18 @@ decomposition (the combination is well calibrated, reliability near zero; the
 recalibration is a calibration fix, the fundamental gain is a resolution gain),
 and the results are written up in the README and CLAUDE.md.
 
-Next is Phase 4, live pre-race logging on a machine with atg.se access, to
-confirm the small edge on fresh races. The plan is in docs/ROADMAP.md. Any
-further feature ideas stay gated through the walk-forward harness, and the small
-edge argues for restraint to avoid overfitting.
+Phase 4 has started. The prediction core (atg/predict.py) is built and tested
+offline: it fits the model on all races before a target date and outputs the
+fundamental, market, recalibrated-market and combination probabilities for that
+date's races. On the real data it predicts 2026-06-28 (42 races) with the same
+weights seen in the walk-forward. tests/test_predict.py checks the plumbing.
+
+Remaining for Phase 4, to run on a machine with atg.se access: a live wrapper
+that brings each day's cards into the database before the off (the existing
+ingestion does this), and a scorer that joins the stored prediction snapshots to
+the outcomes and runs the evaluate harness. These confirm the small edge on fresh
+races. Any further feature ideas stay gated through the walk-forward harness, and
+the small edge argues for restraint to avoid overfitting.
 
 ## Data and workflow
 

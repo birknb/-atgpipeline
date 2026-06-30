@@ -55,6 +55,7 @@ atg/
   features.py  Point-in-time features, re-runnable, reads only norm_ tables
   ratings.py   Running Elo and time-decayed shrunk rates
   model.py     Conditional logit, LightGBM, market recalibration, combination
+  predict.py   Frozen-model prediction for one race day, the Phase 4 core
 tools/
   fetch_samples.py  Pull a few raw JSON files for parser validation
 tests/
@@ -126,11 +127,15 @@ python -m atg.features --db data/atg.sqlite
 # by default, or the quotable walk-forward with --walk.
 python -m atg.model --db data/atg.sqlite --walk
 
+# Predict one race day with the frozen model (the Phase 4 prediction core).
+python -m atg.predict --db data/atg.sqlite --date 2026-06-28
+
 # Offline checks (no network, no database needed).
 python tests/test_phase2.py
 python tests/test_evaluate.py
 python tests/test_features.py
 python tests/test_model.py
+python tests/test_predict.py
 ```
 
 Data is written to `data/atg.sqlite`, which is gitignored.
