@@ -73,8 +73,22 @@ docs/RESEARCH.md. Progress so far:
   the point-in-time discipline, including that a race's own result never enters
   its feature row.
 
-Still to do in Phase 3: within-race feature normalisation and the models
-(Step 3), calibration (Step 4), and the walk-forward evaluation (Step 5).
+- Step 3, models, first cut (atg/model.py, tests/test_model.py). Within-race
+  centred features feed a conditional logit and a LightGBM model, scored through
+  the harness on a fixed split. All numbers here are PRE-WALK-FORWARD and
+  provisional. On the 2026 first-half test block the favourite-longshot
+  recalibration of the market beat the raw market by about 0.55 percent skill with
+  a tight interval, which confirms it as the honest benchmark. The fundamental
+  models trailed the market clearly, near 1.92 to 1.96 log loss against the
+  market's 1.60. Diagnostics show this is genuine feature limitation, not a bug:
+  the models beat a uniform guess and have sensible coefficients, but capture only
+  about half the market's signal with the current coarse features and no pace.
+
+Still to do in Phase 3: stronger features (track variant and class-adjusted speed
+figures, sex, better ratings), the market-combination ceiling to test whether the
+features hold any signal orthogonal to the crowd, a grouped-softmax objective and
+calibration (Step 4), and the walk-forward evaluation that turns these provisional
+numbers into results (Step 5).
 
 ## Data and workflow
 
