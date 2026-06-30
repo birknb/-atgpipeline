@@ -100,11 +100,26 @@ docs/RESEARCH.md. Progress so far:
   the crowd. It is fragile and pre-walk-forward, to be confirmed later. The
   standalone fundamental model still trails the market clearly.
 
-Still to do in Phase 3: a track-variant and class-adjusted speed figure and
-better ratings (the next feature work, since the current speed figure conflates
-class with ability), a grouped-softmax objective and calibration (Step 4), and
-the walk-forward evaluation that turns these provisional numbers into results
-(Step 5).
+- The speed figure was improved (track added to the par, plus a point-in-time
+  daily track variant). It barely moved the models, because the API best-time and
+  career-rate features already carry the ability signal. Kept anyway as a sounder,
+  low-overfit feature.
+- Walk-forward evaluation (atg/model.py --walk), six expanding-window folds over
+  2025-01-01 to 2026-06-28, 16,224 test races. These are quotable, not
+  pre-walk-forward. The favourite-longshot recalibration beats the raw market by
+  0.40 percent skill (log loss 1.6286 against 1.6351), highly significant and
+  above the detection floor, so a robust edge. The standalone fundamental models
+  trail the market clearly (conditional logit 1.88, LightGBM 1.85 against 1.64).
+  The market combination does not significantly beat the recalibrated market
+  (skill 0.07 percent, p 0.07, interval includes zero): the tiny edge seen on the
+  single fixed-split block did not survive walk-forward. So the one robust edge is
+  the favourite-longshot recalibration. The fundamental features add no edge
+  beyond the crowd that survives rigorous evaluation, which is exactly why
+  fixed-split numbers are kept provisional.
+
+Still to do in Phase 3: a disciplined round of further feature ideas, each gated
+through the walk-forward harness so nothing is believed unless it survives, then
+calibration and the write-up.
 
 ## Data and workflow
 

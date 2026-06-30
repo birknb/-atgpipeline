@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sqlite3
+from datetime import date, timedelta
 
 import numpy as np
 import pandas as pd
@@ -233,10 +234,80 @@ def renormalise(df: pd.DataFrame, raw: np.ndarray) -> np.ndarray:
     return (raw / s.groupby(df["race_id"]).transform("sum")).to_numpy()
 
 
+def walk_forward(df: pd.DataFrame, first_test: str = "2025-01-01",
+                 span_days: int = 91, val_days: int = 60, n_boot: int = 2000) -> None:
+    """Expanding-window walk-forward evaluation. Each fold trains on all races
+    before its test window, refits the feature scale, the models, the
+    favourite-longshot power and the combination weights, and predicts the test
+    window. Predictions are accumulated across folds and scored once on the union.
+    These are the quotable results, not pre-walk-forward."""
+    df = df.sort_values("date").reset_index(drop=True)
+    y = df["is_winner"].to_numpy().astype(int)
+    mkt_all = market_frame(df)
+    dmax = df["date"].max()
+
+    acc = {k: [] for k in ["market", "market_flb", "clogit", "lgbm", "combo"]}
+    t0 = date.fromisoformat(first_test)
+    n_folds = 0
+    while t0.isoformat() <= dmax:
+        t1 = t0 + timedelta(days=span_days)
+        ts, te = t0.isoformat(), t1.isoformat()
+        val_cut = (t0 - timedelta(days=val_days)).isoformat()
+        train_mask = (df["date"] < ts).to_numpy()
+        val_mask = ((df["date"] < ts) & (df["date"] >= val_cut)).to_numpy()
+        core_mask = ((df["date"] < val_cut)).to_numpy()
+        test_mask = ((df["date"] >= ts) & (df["date"] < te)).to_numpy()
+        if test_mask.sum() == 0 or core_mask.sum() == 0 or val_mask.sum() == 0:
+            t0 = t1
+            continue
+
+        X, _ = prepare(df, pd.Series(train_mask))
+        cc, gc = _codes(df.loc[core_mask, "race_id"])
+        beta = fit_conditional_logit(X[core_mask], y[core_mask], cc, gc)
+        booster = fit_lgbm(X[core_mask], y[core_mask], X[val_mask], y[val_mask])
+
+        test = df[test_mask]
+        ct, gt = _codes(test["race_id"])
+        p_cl = grouped_softmax(X[test_mask] @ beta, ct, gt)
+        p_lg = renormalise(test, booster.predict(X[test_mask]))
+
+        a = fit_flb_power(mkt_all[train_mask])
+        mkt_test = mkt_all[test_mask].copy()
+        cv, gv = _codes(df.loc[val_mask, "race_id"])
+        f_val = grouped_softmax(X[val_mask] @ beta, cv, gv)
+        coef = fit_market_combination(f_val, mkt_all.loc[val_mask, "p"].to_numpy(), df[val_mask])
+        p_combo = apply_market_combination(p_cl, mkt_test["p"].to_numpy(), test, coef)
+
+        acc["market"].append(mkt_test)
+        acc["market_flb"].append(apply_power(mkt_test, a))
+        acc["clogit"].append(model_frame(test, p_cl))
+        acc["lgbm"].append(model_frame(test, p_lg))
+        acc["combo"].append(model_frame(test, p_combo))
+        n_folds += 1
+        t0 = t1
+
+    frames = {k: pd.concat(v).reset_index(drop=True) for k, v in acc.items()}
+    rd = evaluate.race_dates_from_frame(frames["market"])
+    n_races = frames["market"]["race_id"].nunique()
+    print("=== WALK-FORWARD evaluation (quotable) ===")
+    print(f"{n_folds} folds, {n_races:,} test races from {first_test} to {dmax}")
+    pairs = [
+        ("market_flb vs market", "market_flb", "market"),
+        ("clogit vs market", "clogit", "market"),
+        ("lgbm vs market", "lgbm", "market"),
+        ("combo vs market", "combo", "market"),
+        ("combo vs market_flb", "combo", "market_flb"),
+    ]
+    for label, model, market in pairs:
+        res = evaluate.compare(frames[model], frames[market], rd, label=label, n_boot=n_boot)
+        evaluate.print_report(res)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default="data/atg.sqlite")
     parser.add_argument("--sport", default="trot")
+    parser.add_argument("--walk", action="store_true", help="run the walk-forward evaluation")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
@@ -244,6 +315,10 @@ def main(argv: list[str] | None = None) -> int:
     df = eligible(load_features(conn, args.sport))
     conn.close()
     df = df.sort_values("race_id").reset_index(drop=True)
+
+    if args.walk:
+        walk_forward(df)
+        return 0
 
     train_mask = df["date"] <= TRAIN_END
     val_mask = (df["date"] > TRAIN_END) & (df["date"] <= VAL_END)
