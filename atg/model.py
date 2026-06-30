@@ -319,6 +319,35 @@ def walk_forward(df: pd.DataFrame, first_test: str = "2025-01-01",
         res = evaluate.compare(frames[model], frames[market], rd, label=label, n_boot=n_boot)
         evaluate.print_report(res)
 
+    # Calibration of the headline combination against the market.
+    import os
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plt.figure(figsize=(6, 6))
+    plt.plot([0, 0.6], [0, 0.6], color="grey", ls="--", lw=1, label="perfect")
+    for label, key in [("combination", "combo"), ("market", "market")]:
+        tab = metrics.calibration_table(frames[key], n_bins=12, strategy="quantile")
+        plt.plot(tab["p_mean"], tab["y_rate"], marker="o", label=label)
+    plt.xlabel("mean predicted win probability")
+    plt.ylabel("observed win frequency")
+    plt.title("Walk-forward calibration")
+    plt.legend()
+    plt.tight_layout()
+    os.makedirs("results", exist_ok=True)
+    out = os.path.join("results", "calibration_walkforward.png")
+    plt.savefig(out, dpi=120)
+    plt.close()
+    print(f"\ncalibration plot written to {out}")
+    print("Murphy decomposition (runner level, lower reliability and higher resolution are better):")
+    for key in ["combo", "market_flb", "market"]:
+        d = evaluate.murphy_decomposition(frames[key], n_bins=12)
+        print(f"  {key:11s} reliability {d['reliability']:.5f}  "
+              f"resolution {d['resolution']:.5f}  brier {d['brier_runner']:.5f}")
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
