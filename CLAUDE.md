@@ -254,7 +254,8 @@ next step, with a detailed, research-informed plan in docs/ROADMAP.md.
 Phase 3 built the evaluation harness (splits.py, evaluate.py), point-in-time
 features (features.py, ratings.py) and the models (model.py), and evaluated them
 with a walk-forward. The detailed plan is in docs/ROADMAP.md, the literature in
-docs/RESEARCH.md, and the running log in PROGRESS.md. Code modules: splits.py
+docs/RESEARCH.md, the running log in PROGRESS.md, and the decision record of what
+was tried and deliberately not tried, with justifications, in docs/DECISIONS.md. Code modules: splits.py
 (date-based walk-forward with purge and embargo), evaluate.py (skill score,
 day-blocked bootstrap, Diebold-Mariano, Murphy decomposition, minimum detectable
 effect), features.py and ratings.py (point-in-time features and running Elo and
