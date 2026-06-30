@@ -325,6 +325,45 @@ These shape the work and are for the project owner to confirm.
    handicapping is not feasible from this data, which removes the most promising
    unpriced signal. Expectations are set accordingly.
 
+## Future extensions (out of scope for now)
+
+### Pace from video
+
+The one missing high-value signal is pace and trip, and the only free way to
+recover it for Scandinavian trot is the race video, since no structured feed
+carries it. This is recorded as a possible future project, not part of the
+current plan. An honest assessment of how good it could get:
+
+- Feasibility. Reconstructing running positions from a broadcast feed means
+  detecting, tracking and re-identifying eight to fifteen similar horses through
+  several laps, filmed by a single panning camera with frequent occlusion, plus a
+  track homography to turn screen positions into track coordinates. This is
+  achievable with current computer vision, but it is a large standalone project,
+  on the order of the current modelling work or larger, and it needs the videos
+  collected and stored and a per-track calibration.
+- Accuracy. The output would be noisy. Coarse features are more reachable than
+  precise sectional times: whether a horse led, sat with cover, raced wide without
+  cover, or was held up, and a rough position at the last bend. The fact that
+  commercial providers use GPS tags rather than broadcast video is itself a sign
+  that video tracking is the harder and less reliable route.
+- Payoff. Even clean pace data adds a bounded edge, because the market is sharp
+  and already prices the pace setups that are obvious from replays. The realistic
+  incremental gain from pace features, done well, is on the order of a fraction of
+  a percent to perhaps one or two percent skill, and broadcast-video noise would
+  erode that further. It would most likely help on specific race shapes, such as a
+  lone front-runner in a slow-pace field, rather than uniformly.
+- Better alternative if pace is the goal. A commercial positioning feed (Total
+  Performance Data, TripleSData, RaceIQ) gives clean position and sectional data
+  without building a vision pipeline. It costs money and a licence and depends on
+  the tracks running the system, but it is the higher-quality, lower-build-risk
+  route than video.
+
+Conclusion. Video pace extraction is the only free route to the most promising
+unpriced signal, but it is a high-effort, high-uncertainty project with a modest
+and noisy expected payoff. It is worth keeping as a future extension, not the core
+of this project. If pace ever becomes the priority, price a commercial positioning
+feed before committing to a vision pipeline.
+
 ## References
 
 Racing models and market efficiency:
