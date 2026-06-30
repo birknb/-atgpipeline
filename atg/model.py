@@ -47,6 +47,9 @@ RAW_FEATURES = [
     "trainer_place_rate", "shoes_changed", "sulky_changed",
     # as-of-race API statistics, verified point-in-time safe
     "stat_win_pct", "stat_place_pct", "best_km_time_s", "stat_start_points",
+    # niche Scandinavian-trot factors
+    "barefoot_front", "barefoot_back", "is_american_sulky", "driver_changed",
+    "draw_win_rate",
 ]
 # Skewed counts and money, entered after a log transform.
 LOG_FEATURES = {
@@ -95,6 +98,11 @@ def prepare(df: pd.DataFrame, train_mask: pd.Series) -> tuple[np.ndarray, list[s
     df["age2"] = df["age"].astype(float) ** 2
     df["is_mare"] = (df["sex"] == "mare").astype(float)
     df["is_stallion"] = (df["sex"] == "stallion").astype(float)
+    # Barefoot (barfota) means the shoe is off. Keep NaN when the shoe status is
+    # unknown so it is imputed to the race mean rather than assumed shod.
+    df["barefoot_front"] = 1.0 - df["shoe_front_on"]
+    df["barefoot_back"] = 1.0 - df["shoe_back_on"]
+    df["is_american_sulky"] = (df["sulky_type"] == "American").astype(float)
     for src, dst in LOG_FEATURES.items():
         df[dst] = np.log1p(df[src].clip(lower=0))
     feats = RAW_FEATURES + DERIVED_FEATURES + list(LOG_FEATURES.values())
@@ -278,11 +286,18 @@ def walk_forward(df: pd.DataFrame, first_test: str = "2025-01-01",
         coef = fit_market_combination(f_val, mkt_all.loc[val_mask, "p"].to_numpy(), df[val_mask])
         p_combo = apply_market_combination(p_cl, mkt_test["p"].to_numpy(), test, coef)
 
+        flb_test = apply_power(mkt_test, a)
+        combo_test = model_frame(test, p_combo)
         acc["market"].append(mkt_test)
-        acc["market_flb"].append(apply_power(mkt_test, a))
+        acc["market_flb"].append(flb_test)
         acc["clogit"].append(model_frame(test, p_cl))
         acc["lgbm"].append(model_frame(test, p_lg))
-        acc["combo"].append(model_frame(test, p_combo))
+        acc["combo"].append(combo_test)
+        # Per-fold check on the honest comparison, combo against the recalibrated
+        # market, so we can see whether the edge is consistent or one fold.
+        d = metrics.log_loss(flb_test) - metrics.log_loss(combo_test)
+        print(f"  fold {ts}..{te}: {test['race_id'].nunique():>4} races  "
+              f"combo-vs-flb diff {d:+.5f}  (fund weight {coef[0]:+.2f})")
         n_folds += 1
         t0 = t1
 

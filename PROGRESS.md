@@ -117,9 +117,30 @@ docs/RESEARCH.md. Progress so far:
   beyond the crowd that survives rigorous evaluation, which is exactly why
   fixed-split numbers are kept provisional.
 
-Still to do in Phase 3: a disciplined round of further feature ideas, each gated
-through the walk-forward harness so nothing is believed unless it survives, then
-calibration and the write-up.
+- A disciplined niche-feature batch was added: barefoot (shoes off, front and
+  back), American sulky, driver change, and a point-in-time draw-bias win rate by
+  track, start method and post. These are classic Scandinavian-trot factors,
+  domain-motivated rather than searched on the test set. On the walk-forward they
+  lifted the combination from not beating the recalibrated market (p 0.07) to
+  beating it by 0.20 percent skill, p 0.0002, with the fundamental weight stable
+  and positive across all six folds (0.09 to 0.23) and the per-fold combo-versus-
+  recalibrated difference positive in five of six folds, including the final one.
+  So the features now carry a small but real signal orthogonal to the crowd that
+  survives rigorous evaluation. The standalone fundamental model still loses to
+  the market; the edge is realised only in combination with the market odds,
+  which is a legitimate forecaster's use of public information.
+
+Headline result (walk-forward, 16,224 held-out races): the combination of the
+fundamental model with the market beats the raw market by 0.60 percent skill and
+the favourite-longshot-recalibrated market by 0.20 percent, both significant. The
+recalibration alone beats the raw market by 0.40 percent. This meets the project
+objective, lower out-of-sample log loss than the market. The effect is small and
+this test period has been examined repeatedly, so a fully fresh future period
+(Phase 4 live logging) would be the cleanest confirmation.
+
+Still to do in Phase 3: probability calibration on a forward block (Step 4), then
+the write-up. Any further feature ideas stay gated through the walk-forward
+harness, and the small edge argues for restraint to avoid overfitting.
 
 ## Data and workflow
 

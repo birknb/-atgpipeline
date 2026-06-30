@@ -66,7 +66,12 @@ CREATE TABLE norm_features (
     shoes_changed       INTEGER,
     shoe_front_changed  INTEGER,
     shoe_back_changed   INTEGER,
+    shoe_front_on       INTEGER,
+    shoe_back_on        INTEGER,
     sulky_changed       INTEGER,
+    sulky_type          TEXT,
+    driver_changed      INTEGER,
+    draw_win_rate       REAL,
     -- as-of-race API statistics, verified point-in-time safe
     stat_life_starts    INTEGER,
     stat_win_pct        REAL,
@@ -108,7 +113,9 @@ COLUMNS = [
     "start_id", "race_id", "date", "scheduled_start_time", "number", "horse_id",
     "sport", "country", "field_size", "distance_m", "start_method",
     "start_distance_m", "post_position", "post_rel", "track_id", "age", "sex",
-    "shoes_changed", "shoe_front_changed", "shoe_back_changed", "sulky_changed",
+    "shoes_changed", "shoe_front_changed", "shoe_back_changed", "shoe_front_on",
+    "shoe_back_on", "sulky_changed", "sulky_type", "driver_changed",
+    "draw_win_rate",
     "stat_life_starts", "stat_win_pct", "stat_place_pct", "stat_earn_per_start",
     "stat_start_points", "best_km_time_s",
     "hist_starts", "is_debut", "days_since_last", "form_speed", "form_n", "elo",
@@ -179,9 +186,10 @@ class DecayedMean:
         return st[0] / st[1]
 
 
-def par_keys(sport, start_method, distance) -> tuple:
+def par_keys(sport, start_method, track_id, distance) -> tuple:
     b = dist_bucket(distance)
     return (
+        (sport, start_method, track_id, b),
         (sport, start_method, b),
         (sport, start_method),
         (sport,),
@@ -208,7 +216,8 @@ def build(db_path: str) -> Counter:
                   scratched, place, km_time_s, prize_money, final_odds,
                   is_winner, galloped_or_dq,
                   stat_life_starts, stat_win_pct, stat_place_pct,
-                  stat_earn_per_start, stat_start_points, best_km_time_s
+                  stat_earn_per_start, stat_start_points, best_km_time_s,
+                  shoe_front_on, shoe_back_on, sulky_type, driver_changed
            FROM norm_starts"""
     ):
         starts_by_race.setdefault(row[1], []).append(row)
@@ -225,6 +234,14 @@ def build(db_path: str) -> Counter:
     trn_win = DecayedRate(RATE_HALFLIFE_DAYS, RATE_PSEUDO)
     trn_place = DecayedRate(RATE_HALFLIFE_DAYS, RATE_PSEUDO)
     par = Par()
+    # Track speed varies by day. track_day holds the running deviation from par
+    # for races already completed at a track on a given day, and track_var is a
+    # decayed recent-days fallback used early in a day's card.
+    track_day: dict = {}
+    track_var = DecayedMean(30.0)
+    # Draw bias: win rate by track, start method and post position. Slow decay,
+    # since the geometry of a track is stable.
+    draw_rate = DecayedRate(1460.0, 25.0)
     g_wins = g_top3 = g_starts = 0
 
     out_rows: list[tuple] = []
@@ -249,7 +266,8 @@ def build(db_path: str) -> Counter:
              sulky_changed, driver_id, trainer_id, _scratched, place, km_time_s,
              prize_money, final_odds, is_winner, galloped_or_dq,
              stat_life_starts, stat_win_pct, stat_place_pct, stat_earn_per_start,
-             stat_start_points, best_km_time_s) = s
+             stat_start_points, best_km_time_s,
+             shoe_front_on, shoe_back_on, sulky_type, driver_changed) = s
 
             hs = h_starts.get(horse_id, 0)
             last_day = h_last_day.get(horse_id)
@@ -276,7 +294,15 @@ def build(db_path: str) -> Counter:
                 "shoes_changed": shoes_changed,
                 "shoe_front_changed": shoe_front_changed,
                 "shoe_back_changed": shoe_back_changed,
+                "shoe_front_on": shoe_front_on,
+                "shoe_back_on": shoe_back_on,
                 "sulky_changed": sulky_changed,
+                "sulky_type": sulky_type,
+                "driver_changed": driver_changed,
+                "draw_win_rate": (
+                    draw_rate.rate((track_id, start_method, post_position), day, g_win_rate)
+                    if post_position is not None else None
+                ),
                 "stat_life_starts": stat_life_starts,
                 "stat_win_pct": stat_win_pct,
                 "stat_place_pct": stat_place_pct,
@@ -328,9 +354,19 @@ def build(db_path: str) -> Counter:
         ]
         elo.update(ranked)
 
-        keys = par_keys(sport, start_method, distance_m)
+        keys = par_keys(sport, start_method, track_id, distance_m)
         par_mean = par.mean(keys)
+        # The track variant available before this race: earlier races today if
+        # there are enough, otherwise the recent-days track norm.
+        td = track_day.get((track_id, day))
+        if td and td[1] >= 5:
+            variant = td[0] / td[1]
+        else:
+            tbm = track_var.mean(track_id)
+            variant = tbm if tbm is not None else 0.0
+
         race_km: list[float] = []
+        race_devs: list[float] = []
         for s in ran:
             horse_id = s[5]
             km_time_s = s[16]
@@ -343,8 +379,12 @@ def build(db_path: str) -> Counter:
 
             if km_time_s is not None:
                 if par_mean is not None:
-                    form.add(horse_id, day, par_mean - km_time_s)
+                    # Deviation from par, then remove the day's track effect.
+                    # Higher speed figure means faster than the day's norm.
+                    dev = km_time_s - par_mean
+                    form.add(horse_id, day, variant - dev)
                     h_form_n[horse_id] = h_form_n.get(horse_id, 0) + 1
+                    race_devs.append(dev)
                 race_km.append(km_time_s)
 
             h_starts[horse_id] = h_starts.get(horse_id, 0) + 1
@@ -357,11 +397,18 @@ def build(db_path: str) -> Counter:
             if trainer_id is not None:
                 trn_win.update(trainer_id, day, bool(is_winner))
                 trn_place.update(trainer_id, day, bool(is_top3))
+            if s[3] is not None:  # post_position
+                draw_rate.update((track_id, start_method, s[3]), day, bool(is_winner))
 
             g_wins += is_winner
             g_top3 += is_top3
             g_starts += 1
 
+        if race_devs:
+            acc = track_day.setdefault((track_id, day), [0.0, 0.0])
+            acc[0] += sum(race_devs)
+            acc[1] += len(race_devs)
+            track_var.add(track_id, day, sum(race_devs) / len(race_devs))
         for km in race_km:
             par.add(km, keys)
 

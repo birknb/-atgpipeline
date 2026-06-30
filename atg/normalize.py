@@ -86,6 +86,8 @@ CREATE TABLE norm_starts (
     shoe_back_changed  INTEGER,
     shoes_changed      INTEGER,   -- front or back changed
     sulky_changed      INTEGER,
+    sulky_type         TEXT,      -- Standard or American
+    driver_changed     INTEGER,   -- driver differs from the originally listed one
     driver_id          INTEGER,
     driver_name        TEXT,
     trainer_id         INTEGER,
@@ -233,6 +235,17 @@ def parse_race(payload: dict, report: Counter) -> tuple[dict, list[dict]]:
         result = s.get("result") or {}
         fon, bon, fch, bch, shoes_changed = shoe_fields(horse.get("shoes"))
         sulky = horse.get("sulky") or {}
+        sulky_t = sulky.get("type")
+        if isinstance(sulky_t, dict):
+            sulky_type = sulky_t.get("engText") or sulky_t.get("text")
+        else:
+            sulky_type = sulky_t if isinstance(sulky_t, str) else None
+        original = s.get("originalDriver") or {}
+        driver_changed = 1 if (
+            original.get("id") is not None
+            and driver.get("id") is not None
+            and original.get("id") != driver.get("id")
+        ) else 0
 
         number = _int(s.get("number"))
         scratched = 1 if s.get("scratched") else 0
@@ -269,6 +282,8 @@ def parse_race(payload: dict, report: Counter) -> tuple[dict, list[dict]]:
                 "shoe_back_changed": bch,
                 "shoes_changed": shoes_changed,
                 "sulky_changed": _bool01(sulky.get("changed")) if "changed" in sulky else None,
+                "sulky_type": sulky_type,
+                "driver_changed": driver_changed,
                 "driver_id": _int(driver.get("id")),
                 "driver_name": person_name(driver),
                 "trainer_id": _int(trainer.get("id")),
