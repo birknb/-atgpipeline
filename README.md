@@ -5,8 +5,11 @@ Phase 1 ingests raw data from ATG's public racing info API. Later phases add
 feature engineering and probabilistic race outcome models evaluated against
 the betting market.
 
-Status: Phase 1 (ingestion) complete. Phase 2 (normalisation and the market
-benchmark) written and validated offline, pending a real backfill.
+Status: Phase 1 (ingestion) and Phase 2 (normalisation and the market
+benchmark) complete. The first real backfill is done (28,687 races, 2024 to
+2026, Scandinavia, trot). The market benchmark on it, de-vigged win odds, trot
+only, is log loss 1.6352 over 27,306 races. Phase 3 (features and models) is
+being planned in docs/ROADMAP.md.
 
 ## Research question
 
@@ -124,11 +127,12 @@ norm_bet_distribution  one row per horse per pool leg, share of the pool
 
 ## Roadmap
 
-- [x] Phase 1: ingestion pipeline (this repo)
-- [~] Phase 2: normalisation and market benchmark. Code written and validated
-      offline. Real benchmark numbers pending a backfill.
-- [ ] Phase 3: models. Conditional logit baseline, then LightGBM ranking.
-      Calibration and time-split backtest against market log loss.
+- [x] Phase 1: ingestion pipeline
+- [x] Phase 2: normalisation and market benchmark. Real benchmark on the 2024
+      to 2026 backfill: de-vigged win odds, trot, log loss 1.6352, Brier 0.7235.
+- [ ] Phase 3: models. Conditional logit baseline, then LightGBM with a grouped
+      softmax objective, calibration, and a time-split backtest against the
+      market log loss. See docs/ROADMAP.md.
 - [ ] Phase 4: live prediction logging (timestamped, pre-race) and a dashboard
 
 ## Notes on data use

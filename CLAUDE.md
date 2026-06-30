@@ -34,9 +34,9 @@ a 51 race sample built from it. The modules are normalize.py, benchmark.py and
 metrics.py. The market benchmark uses the de-vigged final win odds as the
 primary signal. On the sample the median overround was 1.179, a takeout near
 15 percent, which is the expected figure for a Swedish trot win pool. The
-V game spelprocent is reported as a second signal where it exists. The sample
-is far too small for the benchmark number itself to mean anything. A real
-backfill is the next step. Feature engineering and models (Phase 3) have not
+V game spelprocent is reported as a second signal where it exists. The first
+real backfill is now complete and the real benchmark is computed (see the
+backfill section below). Feature engineering and models (Phase 3) have not
 started.
 
 Local helpers: tests/build_sample_db.py builds data/sample.sqlite from the raw
@@ -102,6 +102,35 @@ each run:
 - `norm_bet_distribution`: one row per horse per pool leg, share as a
   fraction of the pool.
 
+## Backfill and real market benchmark (June 2026)
+
+The first real backfill is complete. It covers 2024-01-01 to 2026-06-28 for
+Scandinavia (SE, NO, DK), filtered to trot tracks, run with --skip-games. The
+result is 28,687 races and 304,067 starts in data/atg.sqlite, transferred to
+the analysis laptop as a split zip over email and reassembled there.
+Normalisation ran with no parse errors. The country split is SE 18,577, NO
+5,791, DK 4,319. Of the starts, 288,299 ran, 15,768 were scratched, and 53,574
+galloped or were disqualified, the expected high gait-break rate in trot.
+288,129 runners that ran have positive final odds.
+
+The track filter keys on the calendar, but sport is per race, so the backfill
+picked up some non-trot races on trot tracks: 27,384 trot, 1,171 monté, 132
+gallop. Model trot and monté separately. The gallop handful can be dropped.
+
+The real market benchmark is the de-vigged final win odds. Trot only, 27,306
+clean races (exactly one winner, every runner with positive odds):
+
+- log loss 1.6352
+- Brier 0.7235
+- median overround 1.180, a takeout near 15 to 18 percent, matching the sample
+  and confirming the de-vigging.
+
+All sports together, 28,601 races: log loss 1.6372. The calibration curve
+(results/trot/calibration_market.png) sits almost exactly on the diagonal
+across every decile from about 1 to 40 percent, so the win market is close to
+unbiased. This is the number every model must beat out of sample. For scale, a
+uniform guess over a 10 runner field scores ln(10) = 2.30.
+
 ## Verified API facts (confirmed against real payloads, June 2026)
 
 These were corrected after inspecting real race and game JSON. The earlier
@@ -163,10 +192,17 @@ Quirks:
 - sport is per race and is trot or monte. monte is mounted trotting (a rider,
   not a sulky), with different dynamics. Store it and model it separately.
 - shoes and sulky carry changed flags. These are useful pre-race features.
-- The horse and driver statistics blocks may be current rather than as-of-race.
-  Until this is verified, do not use them as features. Reconstruct history from
-  prior races instead. To verify later: check whether a horse's life.starts
-  grows across races over time (as-of-race) or is constant (current).
+- The horse statistics blocks are as-of-race and exclude the current race.
+  This was verified on the 2024 to 2026 backfill. A horse's life.starts grows
+  monotonically across its races over time (11,200 horses with at least five
+  starts increase, only 6 violations), and on adjacent close races the career
+  win count rises in step with the win in the current race, not the next one
+  (10,415 cases against 10). The blocks therefore reflect the horse's record
+  going into the race and are point-in-time safe. They may be used as features,
+  although they are coarse (yearly and life aggregates). Reconstructed
+  prior-race features stay the backbone, with the API blocks as extra features
+  and a cross-check. Driver and trainer blocks are presumed the same but were
+  not separately verified.
 - The API also covers Danish, Norwegian and French trot (countryCode).
 
 ## Standing conventions (apply to all work)
@@ -180,7 +216,10 @@ Quirks:
 - Point-in-time discipline: every model feature must have been knowable
   before race start. finalOdds and betDistribution are post-race values.
   They are the evaluation benchmark and must never leak into features.
-- Evaluation: time-based train/test splits only, never random splits.
+- Evaluation: time-based train/test splits only, never random splits. Numbers
+  from the fast fixed-split phase are provisional. Never quote them anywhere,
+  even internally, without the label pre-walk-forward. Only walk-forward numbers,
+  with purge and embargo, are quotable as results.
 - Writing style everywhere (README, docstrings, comments, docs): plain,
   formal, simple English. Short declarative sentences. Avoid patterns that
   read as AI-generated: em dashes, bold lead-in bullet lists, rule-of-three
@@ -203,9 +242,10 @@ Done and validated against real payloads:
    exactly one winner and every runner that started has a usable value.
    Excluded races are counted, as is the overround for a takeout sanity check.
 
-Remaining before Phase 3 results mean anything: a real backfill. The sample
-has only 51 races, so the benchmark numbers are noise. One open question to
-settle on the backfill is whether the statistics blocks are as-of-race.
+The backfill is now complete and the real benchmark is computed (see the
+backfill section above). The open question about the statistics blocks is
+resolved: they are as-of-race and exclude the current race. Phase 3 is the
+next step, with a detailed, research-informed plan in docs/ROADMAP.md.
 
 ## Phase 3 plan (not started)
 
@@ -213,8 +253,9 @@ settle on the backfill is whether the statistics blocks are as-of-race.
    adjusted for distance and start method, days since last start, post
    position with track and start method, time-decayed driver and trainer win
    rates, class from prior earnings, equipment change flags, field size. The
-   API statistics blocks are not used as features, because they may be
-   current rather than as-of-race.
+   API statistics blocks may also be used as extra features and a cross-check,
+   since they are verified as-of-race. See docs/ROADMAP.md for the detailed,
+   research-informed plan that supersedes this summary.
 2. Baseline: conditional (multinomial) logistic regression over the runners
    in each race. Then LightGBM, first as a binary objective with per-race
    renormalisation, then with a custom grouped-softmax objective.

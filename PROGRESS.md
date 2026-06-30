@@ -3,11 +3,16 @@
 ## Status
 
 Phase 1 (ingestion) is complete and hardened. Phase 2 (normalisation and the
-market benchmark) is written and validated against real sample payloads, and
-the full chain runs. Phase 3 (features, models, evaluation) has not started.
-The next milestone is a real backfill, after which the benchmark numbers become
-meaningful. The current sample of 51 races is far too small for the numbers to
-mean anything.
+market benchmark) is complete and has now run on the first real backfill.
+Phase 3 (features, models, evaluation) has not started; a research-informed
+plan for it is in docs/ROADMAP.md.
+
+The backfill covers 2024-01-01 to 2026-06-28 for Scandinavia, trot, run with
+--skip-games: 28,687 races and 304,067 starts in data/atg.sqlite. The real
+market benchmark, de-vigged final win odds, trot only over 27,306 clean races,
+is log loss 1.6352 and Brier 0.7235, with a median overround of 1.180 and a
+calibration curve close to the diagonal. This is the benchmark Phase 3 must
+beat out of sample.
 
 ## Phase 1: ingestion
 
@@ -57,20 +62,21 @@ without re-downloading.
 
 ## Next steps
 
-1. Backfill, for example:
-   `python -m atg.ingest --from 2023-01-01 --to 2026-06-28 --skip-games`
-   Resumable. Bring `data/atg.sqlite` into `data/`.
-2. `python -m atg.normalize --db data/atg.sqlite`
-   `python -m atg.benchmark --db data/atg.sqlite`
-   Review the market benchmark before any modelling.
-3. Phase 3: point-in-time features from prior races only, a conditional logistic
-   regression baseline, then LightGBM with a grouped-softmax objective,
-   evaluated on a time-based split against the market benchmark with a paired
-   bootstrap and a calibration plot.
+1. Done: backfill 2024-01-01 to 2026-06-28 (Scandinavia, trot, --skip-games),
+   normalisation, and the real market benchmark.
+2. Phase 3, planned in detail in docs/ROADMAP.md: point-in-time features from
+   prior races, the API as-of-race blocks as extra features, a conditional
+   logistic regression baseline, then LightGBM with a grouped softmax objective,
+   calibration on a forward time block, and a walk-forward split with purge and
+   embargo, evaluated against the market benchmark with a paired bootstrap and
+   calibration plots.
 
-## Open question
+## Resolved question
 
-Whether the API statistics blocks are as-of-race or current. On the backfill,
-check whether a horse's `life.starts` grows across races over time. Until this
-is confirmed, do not use those blocks as features. Reconstruct history from
-prior races instead.
+Whether the API statistics blocks are as-of-race or current. Resolved on the
+2024 to 2026 backfill: they are as-of-race and exclude the current race, so they
+are point-in-time safe. A horse's `life.starts` grows monotonically across its
+races (11,200 horses up, 6 violations), and the career win count rises in step
+with the current-race win, not the next race (10,415 against 10). They may be
+used as features, though they are coarse. Reconstructed prior-race features stay
+the backbone.
