@@ -143,9 +143,15 @@ objective, lower out-of-sample log loss than the market. The effect is small and
 this test period has been examined repeatedly, so a fully fresh future period
 (Phase 4 live logging) would be the cleanest confirmation.
 
-Still to do in Phase 3: probability calibration on a forward block (Step 4), then
-the write-up. Any further feature ideas stay gated through the walk-forward
-harness, and the small edge argues for restraint to avoid overfitting.
+Consolidation done: the walk-forward writes a calibration plot and a Murphy
+decomposition (the combination is well calibrated, reliability near zero; the
+recalibration is a calibration fix, the fundamental gain is a resolution gain),
+and the results are written up in the README and CLAUDE.md.
+
+Next is Phase 4, live pre-race logging on a machine with atg.se access, to
+confirm the small edge on fresh races. The plan is in docs/ROADMAP.md. Any
+further feature ideas stay gated through the walk-forward harness, and the small
+edge argues for restraint to avoid overfitting.
 
 ## Data and workflow
 

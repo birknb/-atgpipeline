@@ -325,6 +325,29 @@ These shape the work and are for the project owner to confirm.
    handicapping is not feasible from this data, which removes the most promising
    unpriced signal. Expectations are set accordingly.
 
+## Phase 4 plan: live pre-race logging
+
+The walk-forward edge is small and this 2025 to 2026 test period has been examined
+repeatedly, so the honest final test is fresh races no model has seen. Phase 4
+logs them prospectively.
+
+- Run on a machine that can reach atg.se near race time, since the card must be
+  fetched before the off. The personal machine or a small always-on box fits.
+- Shortly before each race, fetch the card with no result yet, build the same
+  point-in-time features, read the current market odds, and store a timestamped
+  snapshot keyed by start id: the combination and fundamental probabilities, the
+  raw and recalibrated market probabilities, and the feature row.
+- After the race, the existing ingestion records the result. A scorer joins the
+  stored snapshot to the outcome and runs the same evaluate harness.
+- Because every prediction is committed before the off, there is no possible
+  look-ahead. After enough races this confirms or refutes the 0.24 percent
+  combination edge and the 0.40 percent recalibration edge on untouched data.
+
+The day-based idempotent ingestion CLI already fits a nightly run. The new pieces
+are a pre-race logger with timing and a scorer that joins snapshots to results.
+Freeze the model parameters, fit once on all data to date or refit on a fixed
+schedule, so the live test stays honest.
+
 ## Future extensions (out of scope for now)
 
 ### Pace from video
