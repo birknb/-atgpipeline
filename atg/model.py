@@ -163,6 +163,27 @@ def apply_power(market: pd.DataFrame, a: float) -> pd.DataFrame:
     return out
 
 
+def fit_market_combination(f: np.ndarray, m: np.ndarray, df: pd.DataFrame,
+                           lam: float = 0.01) -> np.ndarray:
+    """Benter-style stage two. Fit weights on the log fundamental probability and
+    the log market probability so the combined probability is proportional to
+    f**alpha times m**beta within each race. Fitting uses a held-out block the
+    fundamental model did not train on."""
+    eps = 1e-12
+    X = np.column_stack([np.log(np.clip(f, eps, 1.0)), np.log(np.clip(m, eps, 1.0))])
+    codes, g = _codes(df["race_id"])
+    y = df["is_winner"].to_numpy().astype(int)
+    return fit_conditional_logit(X, y, codes, g, lam=lam)
+
+
+def apply_market_combination(f: np.ndarray, m: np.ndarray, df: pd.DataFrame,
+                             coef: np.ndarray) -> np.ndarray:
+    eps = 1e-12
+    X = np.column_stack([np.log(np.clip(f, eps, 1.0)), np.log(np.clip(m, eps, 1.0))])
+    codes, g = _codes(df["race_id"])
+    return grouped_softmax(X @ coef, codes, g)
+
+
 def market_frame(df: pd.DataFrame) -> pd.DataFrame:
     raw = 1.0 / df["final_odds"].to_numpy()
     out = df[["race_id", "number", "date"]].copy()
@@ -247,17 +268,30 @@ def main(argv: list[str] | None = None) -> int:
     mkt_flb_test = apply_power(mkt_test, a)
     print(f"\nfavourite-longshot power a = {a:.3f} (fit on train)")
 
+    # Market-combination ceiling. Stage-two weights are fit on the validation
+    # block, then applied to test. This uses the odds, so it is a labelled
+    # ceiling that measures whether the features hold signal orthogonal to the
+    # crowd, never a fair standalone beat.
+    val = df[val_mask].copy()
+    cv, gv = _codes(val["race_id"])
+    f_val = grouped_softmax(X[val_mask.to_numpy()] @ beta, cv, gv)
+    m_val = mkt_all.loc[val_mask.to_numpy(), "p"].to_numpy()
+    coef = fit_market_combination(f_val, m_val, val)
+    p_combo = apply_market_combination(p_clogit, mkt_test["p"].to_numpy(), test, coef)
+    print(f"market combination weights: fundamental {coef[0]:+.3f}, market {coef[1]:+.3f}")
+
     rd = evaluate.race_dates_from_frame(test)
     f_clogit = model_frame(test, p_clogit)
     f_lgbm = model_frame(test, p_lgbm)
+    f_combo = model_frame(test, p_combo)
 
     print("\n--- test set, PRE-WALK-FORWARD, provisional ---")
     pairs = [
         ("market_flb vs market", mkt_flb_test, mkt_test),
         ("clogit vs market", f_clogit, mkt_test),
-        ("clogit vs market_flb", f_clogit, mkt_flb_test),
         ("lgbm vs market", f_lgbm, mkt_test),
-        ("lgbm vs market_flb", f_lgbm, mkt_flb_test),
+        ("combo vs market", f_combo, mkt_test),
+        ("combo vs market_flb", f_combo, mkt_flb_test),
     ]
     for label, model, market in pairs:
         res = evaluate.compare(model, market, rd, label=label, n_boot=2000)

@@ -83,12 +83,19 @@ docs/RESEARCH.md. Progress so far:
   market's 1.60. Diagnostics show this is genuine feature limitation, not a bug:
   the models beat a uniform guess and have sensible coefficients, but capture only
   about half the market's signal with the current coarse features and no pace.
+- The market-combination ceiling (fundamental plus market, stage-two weights fit
+  on the validation block) put almost all weight on the market, 1.10, and only
+  0.06 on the fundamental model, and did not significantly beat the recalibrated
+  market (skill plus 0.02 percent, not significant, p 0.51). So with the current
+  features the fundamental model holds essentially no signal orthogonal to the
+  crowd. The favourite-longshot recalibration remains the one genuine edge. This
+  is a pre-walk-forward finding and it motivates the feature work.
 
-Still to do in Phase 3: stronger features (track variant and class-adjusted speed
-figures, sex, better ratings), the market-combination ceiling to test whether the
-features hold any signal orthogonal to the crowd, a grouped-softmax objective and
-calibration (Step 4), and the walk-forward evaluation that turns these provisional
-numbers into results (Step 5).
+Still to do in Phase 3: stronger features (the as-of-race API statistics blocks, a
+track-variant and class-adjusted speed figure, sex and an age curve, better
+ratings), then re-test the standalone model and the combination ceiling, a
+grouped-softmax objective and calibration (Step 4), and the walk-forward
+evaluation that turns these provisional numbers into results (Step 5).
 
 ## Data and workflow
 
