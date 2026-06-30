@@ -348,6 +348,25 @@ are a pre-race logger with timing and a scorer that joins snapshots to results.
 Freeze the model parameters, fit once on all data to date or refit on a fixed
 schedule, so the live test stays honest.
 
+Status. The prediction core (atg/predict.py) and the scorer (atg/score.py) are
+built and tested offline. The remaining piece is the live fetch, which must run
+where atg.se is reachable and needs three things confirmed against live payloads
+first, since the API facts so far were checked only on finished races:
+
+- The current ingestion stores only finished races (status results). The live
+  fetch must instead pull the upcoming card before the off, when the race is not
+  finished, and store it so normalize and features can build pre-race rows.
+- Where the live win odds sit before the off, since the de-vigged market needs a
+  current odds figure rather than the post-race finalOdds. The win pool was
+  dropped from ingestion, so the live fetch has to read it.
+- That the pre-race card carries the as-of-race statistics and record blocks the
+  features rely on. They are present on finished-race payloads; confirm they are
+  present before the race.
+
+Once these are checked on a live payload, the live fetch is a thin wrapper that
+ingests upcoming cards, runs normalize and features, calls predict, and stores
+the snapshot. The scorer then joins snapshots to outcomes and runs the harness.
+
 ## Future extensions (out of scope for now)
 
 ### Pace from video

@@ -154,12 +154,18 @@ fundamental, market, recalibrated-market and combination probabilities for that
 date's races. On the real data it predicts 2026-06-28 (42 races) with the same
 weights seen in the walk-forward. tests/test_predict.py checks the plumbing.
 
-Remaining for Phase 4, to run on a machine with atg.se access: a live wrapper
-that brings each day's cards into the database before the off (the existing
-ingestion does this), and a scorer that joins the stored prediction snapshots to
-the outcomes and runs the evaluate harness. These confirm the small edge on fresh
-races. Any further feature ideas stay gated through the walk-forward harness, and
-the small edge argues for restraint to avoid overfitting.
+The scorer (atg/score.py) is also built and tested offline: it joins stored
+prediction snapshots to the realised winners from norm_starts and runs the
+evaluate harness. So the offline half of Phase 4, predict then score, is complete.
+
+Remaining for Phase 4, to run where atg.se is reachable: the live fetch that
+brings each day's upcoming cards into the database before the off. The current
+ingestion stores only finished races, so this needs a new fetch path, and three
+things should be confirmed on a live payload first (see docs/ROADMAP.md): how to
+fetch the upcoming card, where the live win odds sit before the off, and that the
+pre-race card carries the as-of-race statistics blocks. Any further feature ideas
+stay gated through the walk-forward harness, and the small edge argues for
+restraint to avoid overfitting.
 
 ## Data and workflow
 

@@ -56,6 +56,7 @@ atg/
   ratings.py   Running Elo and time-decayed shrunk rates
   model.py     Conditional logit, LightGBM, market recalibration, combination
   predict.py   Frozen-model prediction for one race day, the Phase 4 core
+  score.py     Score stored prediction snapshots against realised outcomes
 tools/
   fetch_samples.py  Pull a few raw JSON files for parser validation
 tests/
@@ -128,7 +129,10 @@ python -m atg.features --db data/atg.sqlite
 python -m atg.model --db data/atg.sqlite --walk
 
 # Predict one race day with the frozen model (the Phase 4 prediction core).
-python -m atg.predict --db data/atg.sqlite --date 2026-06-28
+python -m atg.predict --db data/atg.sqlite --date 2026-06-28 --save
+
+# Score stored prediction snapshots against the realised outcomes.
+python -m atg.score --db data/atg.sqlite
 
 # Offline checks (no network, no database needed).
 python tests/test_phase2.py
@@ -136,6 +140,7 @@ python tests/test_evaluate.py
 python tests/test_features.py
 python tests/test_model.py
 python tests/test_predict.py
+python tests/test_score.py
 ```
 
 Data is written to `data/atg.sqlite`, which is gitignored.
