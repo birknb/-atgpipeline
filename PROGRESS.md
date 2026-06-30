@@ -52,6 +52,30 @@ from the real JSON in `data/samples/`. On the 51 race sample the median
 overround was 1.179, a takeout near 15 percent, which is the expected figure
 for a Swedish trot win pool and confirms the de-vigging.
 
+## Phase 3 progress
+
+The detailed plan is in docs/ROADMAP.md and the literature behind it in
+docs/RESEARCH.md. Progress so far:
+
+- Step 1, the evaluation harness, is built and tested. atg/splits.py does
+  date-based walk-forward splits with purge and embargo. atg/evaluate.py scores a
+  model against the market on the same races, with a log-loss skill score, a
+  day-blocked paired bootstrap, a Diebold-Mariano test, the Murphy decomposition
+  and the minimum detectable effect. tests/test_evaluate.py passes.
+- An empirical probe found a favourite-longshot bias in the de-vigged odds, so
+  the honest benchmark to beat is the recalibrated market, not the raw market.
+- Step 2, the point-in-time feature build, has a first version. atg/features.py
+  and atg/ratings.py build norm_features, one row per runner from prior-race state
+  only: normalised speed-figure form, a horse Elo, time-decayed shrunk driver and
+  trainer rates, reconstructed class and earnings, layoff, post position, field
+  size and equipment flags. On the backfill it wrote 288,299 rows, 94 percent of
+  them carrying a form figure and an Elo history. tests/test_features.py checks
+  the point-in-time discipline, including that a race's own result never enters
+  its feature row.
+
+Still to do in Phase 3: within-race feature normalisation and the models
+(Step 3), calibration (Step 4), and the walk-forward evaluation (Step 5).
+
 ## Data and workflow
 
 The corporate network blocks atg.se, so ingestion runs on a machine with

@@ -3,8 +3,8 @@
 This document is the detailed plan for Phase 3. It supersedes the short Phase 3
 summary in CLAUDE.md. It was written after a literature review of racing
 prediction models, machine learning for grouped choice problems, probability
-calibration, time-aware validation, and harness feature engineering. Sources
-are listed at the end.
+calibration, time-aware validation, and harness feature engineering. The detailed
+findings from that review are in docs/RESEARCH.md. Sources are listed at the end.
 
 ## Objective and the benchmark to beat
 
