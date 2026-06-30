@@ -36,8 +36,8 @@ primary signal. On the sample the median overround was 1.179, a takeout near
 15 percent, which is the expected figure for a Swedish trot win pool. The
 V game spelprocent is reported as a second signal where it exists. The first
 real backfill is now complete and the real benchmark is computed (see the
-backfill section below). Feature engineering and models (Phase 3) have not
-started.
+backfill section below). Phase 3 (features, models and walk-forward evaluation)
+is also complete; its results are in the Phase 3 section near the end.
 
 Local helpers: tests/build_sample_db.py builds data/sample.sqlite from the raw
 JSON in data/samples/. Both are gitignored.
@@ -247,19 +247,42 @@ backfill section above). The open question about the statistics blocks is
 resolved: they are as-of-race and exclude the current race. Phase 3 is the
 next step, with a detailed, research-informed plan in docs/ROADMAP.md.
 
-## Phase 3 plan (not started)
+## Phase 3 (complete)
 
-1. Point-in-time features computed only from prior races: recent km-time form
-   adjusted for distance and start method, days since last start, post
-   position with track and start method, time-decayed driver and trainer win
-   rates, class from prior earnings, equipment change flags, field size. The
-   API statistics blocks may also be used as extra features and a cross-check,
-   since they are verified as-of-race. See docs/ROADMAP.md for the detailed,
-   research-informed plan that supersedes this summary.
-2. Baseline: conditional (multinomial) logistic regression over the runners
-   in each race. Then LightGBM, first as a binary objective with per-race
-   renormalisation, then with a custom grouped-softmax objective.
-3. Time-based split by race date, never random. Report model log loss and
-   Brier on the held-out test set next to the market benchmark on the same
-   races, with a paired bootstrap on the per-race difference and a model
-   calibration plot. A value-betting backtest is secondary to calibration.
+Phase 3 built the evaluation harness (splits.py, evaluate.py), point-in-time
+features (features.py, ratings.py) and the models (model.py), and evaluated them
+with a walk-forward. The detailed plan is in docs/ROADMAP.md, the literature in
+docs/RESEARCH.md, and the running log in PROGRESS.md. Code modules: splits.py
+(date-based walk-forward with purge and embargo), evaluate.py (skill score,
+day-blocked bootstrap, Diebold-Mariano, Murphy decomposition, minimum detectable
+effect), features.py and ratings.py (point-in-time features and running Elo and
+decayed rates), model.py (conditional logit, LightGBM, the favourite-longshot
+recalibration, the market combination, and the walk-forward).
+
+Result on a walk-forward over 16,224 held-out races, 2025 to mid 2026, scored on
+multinomial log loss:
+
+- The public win market is sharp and well calibrated. Raw market log loss 1.6351.
+- A favourite-longshot recalibration of the market, a single power fit on past
+  data, beats the raw market by 0.40 percent skill. The Murphy decomposition
+  shows this is almost entirely a calibration fix, since favourites are underbet.
+- The combination of the point-in-time fundamental model with the market beats
+  the raw market by 0.64 percent and the recalibrated market by 0.24 percent
+  skill, both significant and consistent across folds. This extra gain is a small
+  resolution gain, real information the crowd has not priced, coming mostly from
+  classic Scandinavian factors: barefoot, draw bias, start-method specialism and
+  class movement.
+- A standalone fundamental model that does not use the odds loses to the market
+  clearly, which is expected for public, pace-less data.
+
+So the project objective is met, modestly. A forecaster using the public odds
+plus the fundamental model produces win probabilities with lower out-of-sample
+log loss than the market. The effect is small. Pace and trip data, the strongest
+known signal, is not available in any structured source (see the pace note in
+docs/ROADMAP.md), which caps the standalone model. The cleanest confirmation of
+the small edge is fresh future races, which Phase 4 provides.
+
+Conventions that held throughout: strict point-in-time features, walk-forward
+with purge and embargo, identical race sets for model and market, the market
+never a feature in the headline fundamental model, and fixed-split numbers kept
+provisional and never quoted as results.

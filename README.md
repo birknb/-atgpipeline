@@ -5,11 +5,32 @@ Phase 1 ingests raw data from ATG's public racing info API. Later phases add
 feature engineering and probabilistic race outcome models evaluated against
 the betting market.
 
-Status: Phase 1 (ingestion) and Phase 2 (normalisation and the market
-benchmark) complete. The first real backfill is done (28,687 races, 2024 to
-2026, Scandinavia, trot). The market benchmark on it, de-vigged win odds, trot
-only, is log loss 1.6352 over 27,306 races. Phase 3 (features and models) is
-being planned in docs/ROADMAP.md.
+Status: Phases 1 to 3 complete. The first real backfill is done (28,687 races,
+2024 to 2026, Scandinavia, trot). On a walk-forward over 16,224 held-out races,
+a forecaster combining the public odds with a point-in-time fundamental model
+beats the market on out-of-sample log loss by a small but significant margin (see
+Results below). The detailed plan is in docs/ROADMAP.md and the research notes in
+docs/RESEARCH.md.
+
+## Results
+
+On a walk-forward over 16,224 held-out races (2025 to mid 2026), scored on
+multinomial log loss against the public win market:
+
+- The market is sharp and well calibrated. Raw market log loss 1.6351.
+- A favourite-longshot recalibration of the market beats it by 0.40 percent
+  skill, almost entirely a calibration fix since favourites are underbet.
+- The combination of the fundamental model with the market beats the raw market
+  by 0.64 percent and the recalibrated market by 0.24 percent skill, both
+  significant. The extra gain is a small resolution gain from point-in-time
+  features, mostly classic Scandinavian factors (barefoot, draw bias,
+  start-method specialism, class movement).
+- A standalone fundamental model that ignores the odds loses to the market, as
+  expected for public data without pace or trip information.
+
+The objective, lower out-of-sample log loss than the market, is met, modestly.
+The effect is small and the cleanest confirmation is fresh future races
+(Phase 4).
 
 ## Research question
 
@@ -29,10 +50,18 @@ atg/
   normalize.py Raw JSON to analytical tables, re-runnable, reads only raw data
   benchmark.py Market win probabilities and benchmark log loss and Brier
   metrics.py   Log loss, Brier, calibration, paired bootstrap
+  splits.py    Date-based walk-forward splits with purge and embargo
+  evaluate.py  Skill score, day-blocked bootstrap, Diebold-Mariano, Murphy
+  features.py  Point-in-time features, re-runnable, reads only norm_ tables
+  ratings.py   Running Elo and time-decayed shrunk rates
+  model.py     Conditional logit, LightGBM, market recalibration, combination
 tools/
   fetch_samples.py  Pull a few raw JSON files for parser validation
 tests/
   test_phase2.py     Offline end-to-end check on fabricated payloads
+  test_evaluate.py   Offline checks of the evaluation harness
+  test_features.py   Offline point-in-time checks of the feature build
+  test_model.py      Offline checks of the modelling maths
   build_sample_db.py Build a small DB from raw JSON in data/samples/
 ```
 
@@ -90,8 +119,18 @@ python -m atg.normalize --db data/atg.sqlite
 # Compute the market benchmark (log loss, Brier, calibration plot).
 python -m atg.benchmark --db data/atg.sqlite
 
-# Offline check of the whole Phase 2 chain on fabricated data.
+# Build point-in-time features into the norm_features table.
+python -m atg.features --db data/atg.sqlite
+
+# Fit and evaluate the models. A fast fixed split (provisional, pre-walk-forward)
+# by default, or the quotable walk-forward with --walk.
+python -m atg.model --db data/atg.sqlite --walk
+
+# Offline checks (no network, no database needed).
 python tests/test_phase2.py
+python tests/test_evaluate.py
+python tests/test_features.py
+python tests/test_model.py
 ```
 
 Data is written to `data/atg.sqlite`, which is gitignored.
@@ -130,10 +169,12 @@ norm_bet_distribution  one row per horse per pool leg, share of the pool
 - [x] Phase 1: ingestion pipeline
 - [x] Phase 2: normalisation and market benchmark. Real benchmark on the 2024
       to 2026 backfill: de-vigged win odds, trot, log loss 1.6352, Brier 0.7235.
-- [ ] Phase 3: models. Conditional logit baseline, then LightGBM with a grouped
-      softmax objective, calibration, and a time-split backtest against the
-      market log loss. See docs/ROADMAP.md.
-- [ ] Phase 4: live prediction logging (timestamped, pre-race) and a dashboard
+- [x] Phase 3: features, models and walk-forward evaluation. The combination of
+      the fundamental model with the market beats the market on held-out log
+      loss by a small significant margin. See docs/ROADMAP.md and the Results
+      section above.
+- [ ] Phase 4: live pre-race logging (timestamped, before the off) to confirm
+      the edge on fresh races, and a dashboard
 
 ## Notes on data use
 
