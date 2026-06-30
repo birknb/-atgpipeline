@@ -48,6 +48,30 @@ not fool ourselves into reporting a large fake one.
   and tested before any model, so no model is ever judged by an instrument we
   have not checked.
 
+## Empirical findings before modelling (pre-walk-forward, indicative)
+
+A probe of the de-vigged final odds on the full data, for orientation only and to
+be re-checked out of sample, found the following.
+
+- A favourite-longshot bias is present even in final odds. The shortest-price
+  group is underbet, predicted 0.48 and won 0.52, and the longest-price groups
+  are overbet, predicted 0.006 and won 0.002. The largest bin deviation is about
+  four percentage points.
+- Correcting it with a single power-transform parameter, near 1.15, which shifts
+  probability mass toward favourites, lowers the market log loss from 1.6352 to
+  1.6281, a gain of about 0.4 percent skill. An in-sample isotonic recalibration,
+  an optimistic ceiling, gains about 0.7 percent. The one-parameter figure should
+  largely hold out of sample because it barely overfits.
+- Raw market log loss rises with field size, from 1.32 at seven or fewer runners
+  to 1.97 at fourteen or more, and differs by country, Norway 1.56 against Sweden
+  1.66. These differences are mostly entropy, not market softness, so they do not
+  by themselves point to exploitable races.
+
+Two consequences for the plan. The favourite-longshot recalibration is a real,
+capturable first gain and the right Step 3 baseline. And the honest benchmark to
+beat is the recalibrated market, not the raw market, because part of any win over
+the raw market is only the recalibration that any model gets for free.
+
 ## Order of work
 
 ### Step 1. Evaluation harness and data spine
@@ -151,14 +175,18 @@ Tier two, build next:
 Tier three, higher effort and higher potential edge:
 
 - Pace and trip. The literature points to pace setup as the most promising
-  unpriced signal, but the raw payload does not carry it. The result block holds
-  only the final per-km time, finishing place and finish order, with no sectional
-  times and no running positions. Running-style classification and a race-level
-  pace-pressure feature are therefore not feasible from the current data. The
-  only weak proxies are start method, post position and distance. A start videos
-  field exists, so pace could in principle be extracted from video, but that is
-  out of scope. This tempers the expected edge, since the clearest place a market
-  can be beaten is not observable here.
+  unpriced signal, but the ingested payload does not carry it. A recursive scan
+  of all 271 key paths across 800 races found only the final per-km time, the
+  finishing place and the finish order, plus the starting post position. There
+  are no sectional or quarter times, no running positions, and no running
+  comments, so running-style classification and a race-level pace-pressure
+  feature are not feasible from this data. The only weak proxies are start
+  method, post position and distance. Two ways to recover pace remain, both
+  outside the current scope: a richer or different ATG endpoint may expose
+  running comments or positions, which needs a network-connected check on a
+  machine that can reach atg.se; and each start carries a video field, so pace
+  could be extracted by computer vision. Until then this tempers the expected
+  edge, since the clearest place a market can be beaten is not observable here.
 - Bayesian hierarchical random effects for horse, driver and track on the speed
   figure, giving shrunk latent abilities as features. Fit on the training period
   only and forward-filter.
@@ -232,9 +260,11 @@ time block, never on the training races and never on the test races.
 For each model, on the held-out test races and on the identical market race set,
 report log loss, Brier, the skill score against the market, the significance
 verdict from the block bootstrap and Diebold-Mariano, a calibration curve next to
-the market, and the score decomposition. Break the numbers down by segment: trot
-against monté, by country, and by field size, since the edge may live in a
-subset. A value-betting backtest is secondary to calibration and is not the goal.
+the market, and the score decomposition. Report the skill score against both the
+raw market and the favourite-longshot-recalibrated market, since beating only the
+raw market may be recovering the recalibration that any model gets for free.
+Break the numbers down by segment: trot against monté, by country, and by field
+size, since the edge may live in a subset. A value-betting backtest is secondary to calibration and is not the goal.
 
 ### Step 6. Research payoff, market combination and bias
 
