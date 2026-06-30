@@ -175,18 +175,21 @@ Tier two, build next:
 Tier three, higher effort and higher potential edge:
 
 - Pace and trip. The literature points to pace setup as the most promising
-  unpriced signal, but the ingested payload does not carry it. A recursive scan
-  of all 271 key paths across 800 races found only the final per-km time, the
-  finishing place and the finish order, plus the starting post position. There
-  are no sectional or quarter times, no running positions, and no running
-  comments, so running-style classification and a race-level pace-pressure
-  feature are not feasible from this data. The only weak proxies are start
-  method, post position and distance. Two ways to recover pace remain, both
-  outside the current scope: a richer or different ATG endpoint may expose
-  running comments or positions, which needs a network-connected check on a
-  machine that can reach atg.se; and each start carries a video field, so pace
-  could be extracted by computer vision. Until then this tempers the expected
-  edge, since the clearest place a market can be beaten is not observable here.
+  unpriced signal, but it is not available in any structured Scandinavian trot
+  data source. A recursive scan of the ATG payload, both race and game, found
+  only the final per-km time, finishing place, finish order and starting post
+  position, with no sectional times, running positions or trip comments. A
+  cross-source check confirmed the gap is not specific to ATG. The official
+  Svensk Travsport Race Data API result schema and a working community scraper
+  both expose only total time, km-time, a gallop flag, place and finishing order,
+  with no sectional or last-500-metre times, no running positions and no trip
+  comment. Norsk Rikstoto publishes no public race-data API. The only ways to
+  obtain pace are the race video through computer vision, or a commercial
+  positioning feed such as Total Performance Data, TripleSData or RaceIQ, both
+  out of scope. Pace is therefore a known, fundamental gap, and the realistic
+  edge is correspondingly smaller. The Svensk Travsport feed does carry a few
+  extras over ATG that are not pace but could be minor future inputs: photo
+  finish margins, disqualification reason text, and start points.
 - Bayesian hierarchical random effects for horse, driver and track on the speed
   figure, giving shrunk latent abilities as features. Fit on the training period
   only and forward-filter.
