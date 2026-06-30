@@ -129,10 +129,15 @@ docs/RESEARCH.md. Progress so far:
   survives rigorous evaluation. The standalone fundamental model still loses to
   the market; the edge is realised only in combination with the market odds,
   which is a legitimate forecaster's use of public information.
+- A final gated batch added a start-method specialism feature (the horse's form
+  under today's start method) and a class-move feature (today's field class minus
+  the horse's recent field class). Consistent small lift: the combination versus
+  the recalibrated market rose to 0.24 percent skill (p below 0.0001, z 4.2),
+  positive in five of six folds including the last, fundamental weights stable.
 
 Headline result (walk-forward, 16,224 held-out races): the combination of the
-fundamental model with the market beats the raw market by 0.60 percent skill and
-the favourite-longshot-recalibrated market by 0.20 percent, both significant. The
+fundamental model with the market beats the raw market by 0.64 percent skill and
+the favourite-longshot-recalibrated market by 0.24 percent, both significant. The
 recalibration alone beats the raw market by 0.40 percent. This meets the project
 objective, lower out-of-sample log loss than the market. The effect is small and
 this test period has been examined repeatedly, so a fully fresh future period

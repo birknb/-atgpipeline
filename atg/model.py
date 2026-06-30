@@ -50,6 +50,8 @@ RAW_FEATURES = [
     # niche Scandinavian-trot factors
     "barefoot_front", "barefoot_back", "is_american_sulky", "driver_changed",
     "draw_win_rate",
+    # specialism and class movement
+    "form_method_speed", "class_move",
 ]
 # Skewed counts and money, entered after a log transform.
 LOG_FEATURES = {

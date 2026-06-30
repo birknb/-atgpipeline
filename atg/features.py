@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import sqlite3
 from collections import Counter
 from datetime import date
@@ -85,6 +86,8 @@ CREATE TABLE norm_features (
     days_since_last     REAL,
     form_speed          REAL,
     form_n              INTEGER,
+    form_method_speed   REAL,    -- form under today's start method (specialism)
+    class_move          REAL,    -- today's field class minus the horse's recent
     elo                 REAL,
     elo_default         INTEGER,
     cum_earnings        INTEGER,
@@ -118,7 +121,8 @@ COLUMNS = [
     "draw_win_rate",
     "stat_life_starts", "stat_win_pct", "stat_place_pct", "stat_earn_per_start",
     "stat_start_points", "best_km_time_s",
-    "hist_starts", "is_debut", "days_since_last", "form_speed", "form_n", "elo",
+    "hist_starts", "is_debut", "days_since_last", "form_speed", "form_n",
+    "form_method_speed", "class_move", "elo",
     "elo_default", "cum_earnings", "avg_earn_per_start", "driver_id",
     "driver_win_rate", "driver_place_rate", "driver_n", "trainer_id",
     "trainer_win_rate", "trainer_place_rate", "trainer_n", "is_winner", "place",
@@ -228,6 +232,10 @@ def build(db_path: str) -> Counter:
     h_cum_earn: dict[int, int] = {}
     h_form_n: dict[int, int] = {}
     form = DecayedMean(FORM_HALFLIFE_DAYS)
+    # form under a given start method (specialism), keyed by (horse, start method)
+    form_method = DecayedMean(FORM_HALFLIFE_DAYS)
+    # the horse's recent field-class level, to measure stepping up or down
+    horse_field_class = DecayedMean(180.0)
     elo = Elo()
     drv_win = DecayedRate(RATE_HALFLIFE_DAYS, RATE_PSEUDO)
     drv_place = DecayedRate(RATE_HALFLIFE_DAYS, RATE_PSEUDO)
@@ -258,6 +266,11 @@ def build(db_path: str) -> Counter:
         field_size = len(ran)
         g_win_rate = g_wins / g_starts if g_starts > 0 else 0.10
         g_place_rate = g_top3 / g_starts if g_starts > 0 else 0.30
+        # Field class for this race, the mean career earnings per start of the
+        # field, on a log scale. Known before the race, since the per-runner
+        # statistics are as-of-race.
+        earns = [s[24] for s in ran if s[24] is not None]  # stat_earn_per_start
+        field_class_log = math.log1p(sum(earns) / len(earns)) if earns else None
 
         # 1) Emit feature rows from pre-race state.
         for s in ran:
@@ -314,6 +327,13 @@ def build(db_path: str) -> Counter:
                 "days_since_last": float(day - last_day) if last_day is not None else None,
                 "form_speed": form.mean(horse_id),
                 "form_n": h_form_n.get(horse_id, 0),
+                "form_method_speed": form_method.mean((horse_id, start_method)),
+                "class_move": (
+                    field_class_log - horse_field_class.mean(horse_id)
+                    if field_class_log is not None
+                    and horse_field_class.mean(horse_id) is not None
+                    else None
+                ),
                 "elo": elo.get(horse_id),
                 "elo_default": 0 if elo.has(horse_id) else 1,
                 "cum_earnings": cum_earn,
@@ -383,6 +403,7 @@ def build(db_path: str) -> Counter:
                     # Higher speed figure means faster than the day's norm.
                     dev = km_time_s - par_mean
                     form.add(horse_id, day, variant - dev)
+                    form_method.add((horse_id, start_method), day, variant - dev)
                     h_form_n[horse_id] = h_form_n.get(horse_id, 0) + 1
                     race_devs.append(dev)
                 race_km.append(km_time_s)
@@ -390,6 +411,8 @@ def build(db_path: str) -> Counter:
             h_starts[horse_id] = h_starts.get(horse_id, 0) + 1
             h_cum_earn[horse_id] = h_cum_earn.get(horse_id, 0) + prize_money
             h_last_day[horse_id] = day
+            if field_class_log is not None:
+                horse_field_class.add(horse_id, day, field_class_log)
 
             if driver_id is not None:
                 drv_win.update(driver_id, day, bool(is_winner))
