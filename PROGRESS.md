@@ -158,14 +158,20 @@ The scorer (atg/score.py) is also built and tested offline: it joins stored
 prediction snapshots to the realised winners from norm_starts and runs the
 evaluate harness. So the offline half of Phase 4, predict then score, is complete.
 
-Remaining for Phase 4, to run where atg.se is reachable: the live fetch that
-brings each day's upcoming cards into the database before the off. The current
-ingestion stores only finished races, so this needs a new fetch path, and three
-things should be confirmed on a live payload first (see docs/ROADMAP.md): how to
-fetch the upcoming card, where the live win odds sit before the off, and that the
-pre-race card carries the as-of-race statistics blocks. Any further feature ideas
-stay gated through the walk-forward harness, and the small edge argues for
-restraint to avoid overfitting.
+Phase 4 confirmation, recommended path. Everything the test needs is
+reconstructable after a race finishes (result, as-of-race statistics, closing
+odds, reconstructed features), so no live capture is needed. Let time pass,
+backfill the new post-2026-06-28 races with the ordinary ingestion, transfer the
+database back, and re-run predict and score on them. predict.py fits only on prior
+races, so there is no look-ahead. Wait for thousands of fresh races across several
+months and all day types, not a single day and not only big Saturdays, whose
+larger pools make the market sharper. As of now only two fresh days exist (data
+ends 2026-06-28, today is 2026-06-30), so this waits.
+
+Live pre-race logging (atg/predict snapshots plus tools/inspect_live and a future
+fetch wrapper) is optional extra rigor, not needed for the goal, and is a daily
+operational chore. Any further feature ideas stay gated through the walk-forward
+harness, and the small edge argues for restraint to avoid overfitting.
 
 ## Data and workflow
 

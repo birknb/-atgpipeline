@@ -69,10 +69,12 @@ Two-machine workflow (because of the network block):
    `data/`. The directory is gitignored.
 3. All later phases (normalisation, features, models, evaluation) run
    on this laptop against the local SQLite file and need no network.
-4. Phase 4 (live pre-race logging) must eventually run on the personal
-   machine or a small always-on box, since it needs the API near race
-   start. The day-based idempotent CLI already fits a nightly
-   incremental run.
+4. Phase 4 confirms the small edge on fresh races. The recommended way is to
+   backfill new races after a few months and re-run predict and score, since
+   everything needed is reconstructable after a race finishes (result, as-of-race
+   statistics, closing odds, prior-race features). Live pre-race logging is
+   optional extra rigor and the only part that would need the API near race
+   start. See docs/ROADMAP.md.
 
 Code layout:
 

@@ -325,47 +325,44 @@ These shape the work and are for the project owner to confirm.
    handicapping is not feasible from this data, which removes the most promising
    unpriced signal. Expectations are set accordingly.
 
-## Phase 4 plan: live pre-race logging
+## Phase 4: fresh-data confirmation
 
-The walk-forward edge is small and this 2025 to 2026 test period has been examined
-repeatedly, so the honest final test is fresh races no model has seen. Phase 4
-logs them prospectively.
+The walk-forward edge is small and the 2025 to 2026 period was examined repeatedly
+while building the features, so the honest final test is races no model has seen.
+The point is fresh data, not live capture.
 
-- Run on a machine that can reach atg.se near race time, since the card must be
-  fetched before the off. The personal machine or a small always-on box fits.
-- Shortly before each race, fetch the card with no result yet, build the same
-  point-in-time features, read the current market odds, and store a timestamped
-  snapshot keyed by start id: the combination and fundamental probabilities, the
-  raw and recalibrated market probabilities, and the feature row.
-- After the race, the existing ingestion records the result. A scorer joins the
-  stored snapshot to the outcome and runs the same evaluate harness.
-- Because every prediction is committed before the off, there is no possible
-  look-ahead. After enough races this confirms or refutes the 0.24 percent
-  combination edge and the 0.40 percent recalibration edge on untouched data.
+Recommended path: backfill-after. Everything the test needs is reconstructable
+after a race finishes: the result, the as-of-race statistics (verified to exclude
+the current race), the closing odds that are the benchmark, and the reconstructed
+prior-race features. So the simplest confirmation is to let time pass, backfill
+the new races with the ordinary ingestion, and re-run predict and score on the
+genuinely fresh post-2026-06-28 races. predict.py fits only on races before each
+target date, so there is no look-ahead. This needs no new code.
 
-The day-based idempotent ingestion CLI already fits a nightly run. The new pieces
-are a pre-race logger with timing and a scorer that joins snapshots to results.
-Freeze the model parameters, fit once on all data to date or refit on a fixed
-schedule, so the live test stays honest.
+    python -m atg.ingest --from 2026-06-29 --to <later> --skip-games   # personal machine
+    # transfer data/atg.sqlite back, then on the analysis machine:
+    python -m atg.predict --db data/atg.sqlite --date <a fresh date> --save
+    python -m atg.score --db data/atg.sqlite
 
-Status. The prediction core (atg/predict.py) and the scorer (atg/score.py) are
-built and tested offline. The remaining piece is the live fetch, which must run
-where atg.se is reachable and needs three things confirmed against live payloads
-first, since the API facts so far were checked only on finished races:
+How much, and which days. The edge is about 0.24 percent skill, which took roughly
+16,000 races to detect, so wait for thousands of fresh races, several months of
+racing. Use all day types, the same mix the model was built on. Do not cherry-pick
+big Saturdays: their larger pools make the market sharper, so the edge is likely
+smaller there, not larger. A breakdown by pool size is a useful secondary view.
 
-- The current ingestion stores only finished races (status results). The live
-  fetch must instead pull the upcoming card before the off, when the race is not
-  finished, and store it so normalize and features can build pre-race rows.
-- Where the live win odds sit before the off, since the de-vigged market needs a
-  current odds figure rather than the post-race finalOdds. The win pool was
-  dropped from ingestion, so the live fetch has to read it.
-- That the pre-race card carries the as-of-race statistics and record blocks the
-  features rely on. They are present on finished-race payloads; confirm they are
-  present before the race.
+As of writing only two fresh days exist (the data ends 2026-06-28 and today is
+2026-06-30), so this simply waits until enough new races have run.
 
-Once these are checked on a live payload, the live fetch is a thin wrapper that
-ingests upcoming cards, runs normalize and features, calls predict, and stores
-the snapshot. The scorer then joins snapshots to outcomes and runs the harness.
+Optional, stricter rigor: live pre-race logging. Capturing predictions before the
+off would add a pre-registered, timestamped, look-ahead-proof record, and would
+let the edge be tested against the pre-close odds rather than the closing odds.
+Neither is needed here, since the benchmark is the closing odds and point-in-time
+safety is already verified in code, and running a logger before every card is a
+daily operational chore. tools/inspect_live.py can dump a live payload if this is
+ever pursued. Three things would need confirming first, since the API facts so far
+were checked only on finished races: how to fetch an upcoming card before the off,
+where the live win odds sit, and whether the pre-race card carries the as-of-race
+statistics blocks.
 
 ## Future extensions (out of scope for now)
 
